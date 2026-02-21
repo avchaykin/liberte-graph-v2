@@ -22,11 +22,14 @@ const slugify = (value) =>
     .replace(/[^a-z0-9а-яё]+/gi, '-')
     .replace(/^-+|-+$/g, '');
 
+const PASTEL_COLORS = ['#FDE68A', '#FBCFE8', '#BFDBFE', '#C7D2FE', '#BBF7D0', '#FED7AA', '#E9D5FF', '#A7F3D0'];
+
 const initialBlockTypes = [
   {
     id: 'power/circuit-breaker-1p-n',
     group: 'power',
     name: 'Circuit Breaker 1P+N',
+    headerColor: '#BFDBFE',
     inputs: [
       { id: 'in-n', name: 'N', type: 'electrical' },
       { id: 'in-l', name: 'L', type: 'electrical' },
@@ -56,7 +59,9 @@ function BlockNode({ data, selected }) {
 
   return (
     <div className={`rf-block ${selected ? 'rf-block--selected' : ''}`}>
-      <div className="rf-block__header">{data.instanceName}</div>
+      <div className="rf-block__header" style={{ background: data.headerColor || '#ffffff' }}>
+        {data.instanceName}
+      </div>
 
       {inPorts.map((p, idx) => (
         <Handle
@@ -128,6 +133,7 @@ function DiagramApp() {
   const [editingId, setEditingId] = useState(null);
   const [draftGroup, setDraftGroup] = useState('power');
   const [draftName, setDraftName] = useState('');
+  const [draftHeaderColor, setDraftHeaderColor] = useState(PASTEL_COLORS[0]);
   const [draftInputs, setDraftInputs] = useState([]);
   const [draftOutputs, setDraftOutputs] = useState([]);
   const [draftAttrs, setDraftAttrs] = useState([]);
@@ -192,6 +198,7 @@ function DiagramApp() {
       data: {
         typeId: typeDef.id,
         instanceName: typeDef.name,
+        headerColor: typeDef.headerColor || PASTEL_COLORS[0],
         inputs: typeDef.inputs,
         outputs: typeDef.outputs,
         attributes: typeDef.attributes.map((attr) => ({
@@ -224,6 +231,7 @@ function DiagramApp() {
     setEditingId(null);
     setDraftGroup('power');
     setDraftName('');
+    setDraftHeaderColor(PASTEL_COLORS[0]);
     setDraftInputs([]);
     setDraftOutputs([]);
     setDraftAttrs([]);
@@ -235,6 +243,7 @@ function DiagramApp() {
     setEditingId(t.id);
     setDraftGroup(t.group);
     setDraftName(t.name);
+    setDraftHeaderColor(t.headerColor || PASTEL_COLORS[0]);
     setDraftInputs(t.inputs.map((x) => ({ ...x })));
     setDraftOutputs(t.outputs.map((x) => ({ ...x })));
     setDraftAttrs(t.attributes.map((attr) => ({ name: attr.name, hidden: Boolean(attr.hidden) })));
@@ -250,6 +259,7 @@ function DiagramApp() {
       id,
       group: draftGroup.trim(),
       name: draftName.trim(),
+      headerColor: draftHeaderColor || PASTEL_COLORS[0],
       inputs: draftInputs
         .filter((p) => p.name.trim() && p.type.trim())
         .map((p, i) => ({ id: p.id || `in-${slugify(p.name)}-${i}`, name: p.name.trim(), type: p.type.trim() })),
@@ -272,6 +282,7 @@ function DiagramApp() {
             data: {
               ...n.data,
               typeId: normalized.id,
+              headerColor: normalized.headerColor,
               inputs: normalized.inputs,
               outputs: normalized.outputs,
               attributes: normalized.attributes.map((attr) => ({
@@ -392,6 +403,21 @@ function DiagramApp() {
               <span>Имя блока</span>
               <input value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Circuit Breaker 1P+N" />
             </label>
+            <div className="field">
+              <span>Цвет заголовка (пастель)</span>
+              <div className="color-palette">
+                {PASTEL_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={`color-swatch ${draftHeaderColor === color ? 'color-swatch--active' : ''}`}
+                    style={{ background: color }}
+                    onClick={() => setDraftHeaderColor(color)}
+                    aria-label={`color ${color}`}
+                  />
+                ))}
+              </div>
+            </div>
             <p className="hint">ID создаётся автоматически: {buildTypeId(draftGroup || 'group', draftName || 'name')}</p>
 
             <div className="section">
