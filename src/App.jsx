@@ -35,7 +35,11 @@ const initialBlockTypes = [
       { id: 'out-n', name: 'N', type: 'electrical' },
       { id: 'out-l', name: 'L', type: 'electrical' },
     ],
-    attributes: ['Line', 'Model', 'Power'],
+    attributes: [
+      { name: 'Line', hidden: false },
+      { name: 'Model', hidden: false },
+      { name: 'Power', hidden: false },
+    ],
   },
 ];
 
@@ -94,12 +98,14 @@ function BlockNode({ data, selected }) {
       </div>
 
       <div className="rf-block__attrs">
-        {data.attributes.map((a) => (
-          <div className="rf-block__attr" key={a.name}>
-            <span>{a.name}</span>
-            <strong>{a.value}</strong>
-          </div>
-        ))}
+        {data.attributes
+          .filter((a) => !a.hidden)
+          .map((a) => (
+            <div className="rf-block__attr" key={a.name}>
+              <span>{a.name}</span>
+              <strong>{a.value}</strong>
+            </div>
+          ))}
       </div>
     </div>
   );
@@ -188,7 +194,11 @@ function DiagramApp() {
         instanceName: typeDef.name,
         inputs: typeDef.inputs,
         outputs: typeDef.outputs,
-        attributes: typeDef.attributes.map((name) => ({ name, value: '' })),
+        attributes: typeDef.attributes.map((attr) => ({
+          name: attr.name,
+          hidden: Boolean(attr.hidden),
+          value: '',
+        })),
       },
     };
     setNodes((prev) => [...prev, node]);
@@ -227,7 +237,7 @@ function DiagramApp() {
     setDraftName(t.name);
     setDraftInputs(t.inputs.map((x) => ({ ...x })));
     setDraftOutputs(t.outputs.map((x) => ({ ...x })));
-    setDraftAttrs(t.attributes.map((name) => ({ name })));
+    setDraftAttrs(t.attributes.map((attr) => ({ name: attr.name, hidden: Boolean(attr.hidden) })));
     setEditorOpen(true);
     closeMenu();
   };
@@ -246,7 +256,9 @@ function DiagramApp() {
       outputs: draftOutputs
         .filter((p) => p.name.trim() && p.type.trim())
         .map((p, i) => ({ id: p.id || `out-${slugify(p.name)}-${i}`, name: p.name.trim(), type: p.type.trim() })),
-      attributes: draftAttrs.filter((a) => a.name.trim()).map((a) => a.name.trim()),
+      attributes: draftAttrs
+        .filter((a) => a.name.trim())
+        .map((a) => ({ name: a.name.trim(), hidden: Boolean(a.hidden) })),
     };
 
     if (editingId) {
@@ -262,9 +274,10 @@ function DiagramApp() {
               typeId: normalized.id,
               inputs: normalized.inputs,
               outputs: normalized.outputs,
-              attributes: normalized.attributes.map((name) => ({
-                name,
-                value: oldAttrMap[name] ?? '',
+              attributes: normalized.attributes.map((attr) => ({
+                name: attr.name,
+                hidden: Boolean(attr.hidden),
+                value: oldAttrMap[attr.name] ?? '',
               })),
             },
           };
@@ -426,15 +439,31 @@ function DiagramApp() {
             <div className="section">
               <div className="section__head">
                 <span>Атрибуты</span>
-                <button onClick={() => setDraftAttrs((prev) => [...prev, { name: '' }])}>+ Атрибут</button>
+                <button onClick={() => setDraftAttrs((prev) => [...prev, { name: '', hidden: false }])}>+ Атрибут</button>
               </div>
               {draftAttrs.map((a, i) => (
-                <div className="row row--single" key={`attr-${i}`}>
+                <div className="row row--attr" key={`attr-${i}`}>
                   <input
                     placeholder="Имя атрибута"
                     value={a.name}
-                    onChange={(e) => setDraftAttrs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))}
+                    onChange={(e) =>
+                      setDraftAttrs((prev) =>
+                        prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it))
+                      )
+                    }
                   />
+                  <label className="checkbox-inline">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(a.hidden)}
+                      onChange={(e) =>
+                        setDraftAttrs((prev) =>
+                          prev.map((it, idx) => (idx === i ? { ...it, hidden: e.target.checked } : it))
+                        )
+                      }
+                    />
+                    скрытый
+                  </label>
                 </div>
               ))}
             </div>

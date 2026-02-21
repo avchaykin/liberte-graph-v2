@@ -236,6 +236,19 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   grid-template-columns: 1fr;
 }
 
+.row--attr {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #334155;
+}
+
 .row3 {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
