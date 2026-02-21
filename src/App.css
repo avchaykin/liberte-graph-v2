@@ -79,6 +79,8 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   padding: 10px 12px;
   border-bottom: 1px solid #e5e7eb;
   font-weight: 600;
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
 }
 
 .rf-block__handle {
