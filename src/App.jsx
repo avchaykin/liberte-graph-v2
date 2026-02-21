@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactFlow, {
   addEdge,
   Background,
@@ -15,14 +15,18 @@ import { nanoid } from 'nanoid';
 import 'reactflow/dist/style.css';
 import './App.css';
 
+const STORAGE_SCHEMAS = 'liberte.schemas.v1';
+const STORAGE_AUTOSAVE = 'liberte.autosave.v1';
+const STORAGE_LAST_NAME = 'liberte.lastName.v1';
+
+const PASTEL_COLORS = ['#FDE68A', '#FBCFE8', '#BFDBFE', '#C7D2FE', '#BBF7D0', '#FED7AA', '#E9D5FF', '#A7F3D0'];
+
 const slugify = (value) =>
   value
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9а-яё]+/gi, '-')
     .replace(/^-+|-+$/g, '');
-
-const PASTEL_COLORS = ['#FDE68A', '#FBCFE8', '#BFDBFE', '#C7D2FE', '#BBF7D0', '#FED7AA', '#E9D5FF', '#A7F3D0'];
 
 const initialBlockTypes = [
   {
@@ -121,11 +125,18 @@ const nodeTypes = { block: BlockNode };
 function DiagramApp() {
   const rf = useReactFlow();
   const wrapperRef = useRef(null);
+  const autosaveTimerRef = useRef(null);
+  const loadedRef = useRef(false);
 
   const [blockTypes, setBlockTypes] = useState(initialBlockTypes);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
+
+  const [currentSchemaName, setCurrentSchemaName] = useState('');
+  const [showSaveAs, setShowSaveAs] = useState(false);
+  const [draftSchemaName, setDraftSchemaName] = useState('');
+  const [showLoad, setShowLoad] = useState(false);
 
   const [menu, setMenu] = useState({ visible: false, x: 0, y: 0, flowX: 0, flowY: 0 });
 
@@ -146,6 +157,14 @@ function DiagramApp() {
     }
     return g;
   }, [blockTypes]);
+
+  const savedSchemas = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_SCHEMAS) || '{}');
+    } catch {
+      return {};
+    }
+  }, [showLoad, currentSchemaName, nodes, edges, blockTypes]);
 
   const connectedByNode = useMemo(() => {
     const map = {};
@@ -175,6 +194,102 @@ function DiagramApp() {
   );
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) || null;
+
+  const buildPayload = useCallback(
+    (name = '') => ({
+      version: 1,
+      name,
+      updatedAt: Date.now(),
+      blockTypes,
+      nodes,
+      edges,
+      viewport: rf.getViewport(),
+    }),
+    [blockTypes, nodes, edges, rf]
+  );
+
+  const applyPayload = useCallback(
+    (payload, { fromAutosave = false } = {}) => {
+      setBlockTypes(payload.blockTypes || initialBlockTypes);
+      setNodes(payload.nodes || []);
+      setEdges(payload.edges || []);
+      setSelectedNodeId(null);
+      if (!fromAutosave) {
+        setCurrentSchemaName(payload.name || '');
+        localStorage.setItem(STORAGE_LAST_NAME, payload.name || '');
+      }
+      if (payload.viewport) {
+        requestAnimationFrame(() => rf.setViewport(payload.viewport, { duration: 0 }));
+      }
+    },
+    [setNodes, setEdges, rf]
+  );
+
+  useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+
+    const autosaveRaw = localStorage.getItem(STORAGE_AUTOSAVE);
+    if (autosaveRaw) {
+      try {
+        const payload = JSON.parse(autosaveRaw);
+        applyPayload(payload, { fromAutosave: true });
+      } catch {
+        // ignore broken autosave
+      }
+    }
+
+    const lastName = localStorage.getItem(STORAGE_LAST_NAME) || '';
+    setCurrentSchemaName(lastName);
+  }, [applyPayload]);
+
+  useEffect(() => {
+    if (!loadedRef.current) return;
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(() => {
+      localStorage.setItem(STORAGE_AUTOSAVE, JSON.stringify(buildPayload(currentSchemaName || 'autosave')));
+    }, 700);
+    return () => clearTimeout(autosaveTimerRef.current);
+  }, [nodes, edges, blockTypes, currentSchemaName, buildPayload]);
+
+  const persistNamedSchema = useCallback(
+    (name) => {
+      const clean = name.trim();
+      if (!clean) return false;
+      let map = {};
+      try {
+        map = JSON.parse(localStorage.getItem(STORAGE_SCHEMAS) || '{}');
+      } catch {
+        map = {};
+      }
+      map[clean] = buildPayload(clean);
+      localStorage.setItem(STORAGE_SCHEMAS, JSON.stringify(map));
+      localStorage.setItem(STORAGE_LAST_NAME, clean);
+      setCurrentSchemaName(clean);
+      return true;
+    },
+    [buildPayload]
+  );
+
+  const handleSave = () => {
+    if (!currentSchemaName) {
+      setDraftSchemaName('');
+      setShowSaveAs(true);
+      return;
+    }
+    persistNamedSchema(currentSchemaName);
+  };
+
+  const handleSaveAs = () => {
+    if (persistNamedSchema(draftSchemaName)) setShowSaveAs(false);
+  };
+
+  const handleLoad = (name) => {
+    const map = JSON.parse(localStorage.getItem(STORAGE_SCHEMAS) || '{}');
+    if (!map[name]) return;
+    applyPayload(map[name], { fromAutosave: false });
+    setShowLoad(false);
+  };
 
   const closeMenu = () => setMenu((m) => ({ ...m, visible: false }));
 
@@ -324,6 +439,20 @@ function DiagramApp() {
   return (
     <div className="layout">
       <div className="canvas" ref={wrapperRef} onContextMenu={openMenu}>
+        <div className="topbar">
+          <button onClick={handleSave}>Сохранить</button>
+          <button
+            onClick={() => {
+              setDraftSchemaName(currentSchemaName || '');
+              setShowSaveAs(true);
+            }}
+          >
+            Сохранить как
+          </button>
+          <button onClick={() => setShowLoad(true)}>Загрузить</button>
+          <span className="topbar__name">{currentSchemaName ? `Схема: ${currentSchemaName}` : 'Без имени'}</span>
+        </div>
+
         <ReactFlow
           nodes={renderedNodes}
           edges={edges}
@@ -380,7 +509,7 @@ function DiagramApp() {
             </label>
             {selectedNode.data.attributes.map((a) => (
               <label className="field" key={a.name}>
-                <span>{a.name}</span>
+                <span>{a.name}{a.hidden ? ' (скрытый)' : ''}</span>
                 <input value={a.value} onChange={(e) => updateNodeAttr(a.name, e.target.value)} />
               </label>
             ))}
@@ -473,9 +602,7 @@ function DiagramApp() {
                     placeholder="Имя атрибута"
                     value={a.name}
                     onChange={(e) =>
-                      setDraftAttrs((prev) =>
-                        prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it))
-                      )
+                      setDraftAttrs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))
                     }
                   />
                   <label className="checkbox-inline">
@@ -483,9 +610,7 @@ function DiagramApp() {
                       type="checkbox"
                       checked={Boolean(a.hidden)}
                       onChange={(e) =>
-                        setDraftAttrs((prev) =>
-                          prev.map((it, idx) => (idx === i ? { ...it, hidden: e.target.checked } : it))
-                        )
+                        setDraftAttrs((prev) => prev.map((it, idx) => (idx === i ? { ...it, hidden: e.target.checked } : it)))
                       }
                     />
                     скрытый
@@ -497,6 +622,44 @@ function DiagramApp() {
             <div className="modal-actions">
               <button className="btn-muted" onClick={() => setEditorOpen(false)}>Отмена</button>
               <button className="btn-primary" onClick={saveType}>Сохранить</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSaveAs && (
+        <div className="modal-backdrop" onClick={() => setShowSaveAs(false)}>
+          <div className="modal modal--small" onClick={(e) => e.stopPropagation()}>
+            <h3>Сохранить схему как</h3>
+            <label className="field">
+              <span>Имя схемы</span>
+              <input value={draftSchemaName} onChange={(e) => setDraftSchemaName(e.target.value)} placeholder="my-home-v1" />
+            </label>
+            <div className="modal-actions">
+              <button className="btn-muted" onClick={() => setShowSaveAs(false)}>Отмена</button>
+              <button className="btn-primary" onClick={handleSaveAs}>Сохранить</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLoad && (
+        <div className="modal-backdrop" onClick={() => setShowLoad(false)}>
+          <div className="modal modal--small" onClick={(e) => e.stopPropagation()}>
+            <h3>Загрузить схему</h3>
+            <div className="schema-list">
+              {Object.keys(savedSchemas).length === 0 && <p>Сохранённых схем нет</p>}
+              {Object.entries(savedSchemas)
+                .sort((a, b) => (b[1].updatedAt || 0) - (a[1].updatedAt || 0))
+                .map(([name, payload]) => (
+                  <button key={name} className="schema-list__item" onClick={() => handleLoad(name)}>
+                    <strong>{name}</strong>
+                    <span>{new Date(payload.updatedAt || Date.now()).toLocaleString()}</span>
+                  </button>
+                ))}
+            </div>
+            <div className="modal-actions">
+              <button className="btn-muted" onClick={() => setShowLoad(false)}>Закрыть</button>
             </div>
           </div>
         </div>
