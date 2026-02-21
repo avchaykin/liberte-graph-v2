@@ -81,7 +81,6 @@ function BlockNode({ data, selected }) {
           {inPorts.map((p) => (
             <div key={`in-${p.id}`} className="rf-block__port-row">
               <strong>{p.name}</strong>
-              <span>{p.type}</span>
             </div>
           ))}
         </div>
@@ -89,7 +88,6 @@ function BlockNode({ data, selected }) {
           {outPorts.map((p) => (
             <div key={`out-${p.id}`} className="rf-block__port-row rf-block__port-row--right">
               <strong>{p.name}</strong>
-              <span>{p.type}</span>
             </div>
           ))}
         </div>
@@ -253,6 +251,25 @@ function DiagramApp() {
 
     if (editingId) {
       setBlockTypes((prev) => prev.map((t) => (t.id === editingId ? normalized : t)));
+      setNodes((prev) =>
+        prev.map((n) => {
+          if (n.data.typeId !== editingId) return n;
+          const oldAttrMap = Object.fromEntries((n.data.attributes ?? []).map((a) => [a.name, a.value]));
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              typeId: normalized.id,
+              inputs: normalized.inputs,
+              outputs: normalized.outputs,
+              attributes: normalized.attributes.map((name) => ({
+                name,
+                value: oldAttrMap[name] ?? '',
+              })),
+            },
+          };
+        })
+      );
     } else {
       setBlockTypes((prev) => [...prev, normalized]);
     }

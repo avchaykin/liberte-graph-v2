@@ -49,7 +49,7 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   background: #ffffff;
   color: #0f172a;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .rf-block--selected {
@@ -63,10 +63,19 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 }
 
 .rf-block__handle {
-  width: 10px !important;
-  height: 10px !important;
-  background: #9ca3af !important;
-  border: 1px solid #fff;
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 999px !important;
+  border: 2px solid #94a3b8 !important;
+  box-shadow: none !important;
+}
+
+.rf-block__handle.react-flow__handle-left {
+  left: -7px;
+}
+
+.rf-block__handle.react-flow__handle-right {
+  right: -7px;
 }
 
 .rf-block__ports {
@@ -78,18 +87,15 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 
 .rf-block__port-row {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+  height: 24px;
   font-size: 12px;
-  line-height: 20px;
 }
 
 .rf-block__port-row--right {
+  justify-content: flex-end;
   text-align: right;
-}
-
-.rf-block__port-row span {
-  color: #64748b;
 }
 
 .rf-block__attrs {
