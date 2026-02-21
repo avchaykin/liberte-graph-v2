@@ -226,6 +226,10 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   margin-bottom: 8px;
 }
 
+.row--single {
+  grid-template-columns: 1fr;
+}
+
 .row3 {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;

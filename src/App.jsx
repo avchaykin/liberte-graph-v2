@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import ReactFlow, {
   addEdge,
   Background,
+  ConnectionLineType,
   Controls,
   Handle,
   Position,
@@ -34,19 +35,20 @@ const initialBlockTypes = [
       { id: 'out-n', name: 'N', type: 'electrical' },
       { id: 'out-l', name: 'L', type: 'electrical' },
     ],
-    attributes: [
-      { key: 'line', label: 'Line', defaultValue: '4: HEATING?' },
-      { key: 'model', label: 'Model', defaultValue: 'Hager MF 710' },
-      { key: 'power', label: 'Power', defaultValue: '10' },
-    ],
+    attributes: ['Line', 'Model', 'Power'],
   },
 ];
+
+const HEADER_H = 40;
+const PORTS_PAD = 10;
+const PORT_ROW_H = 24;
 
 function BlockNode({ data, selected }) {
   const inPorts = data.inputs ?? [];
   const outPorts = data.outputs ?? [];
+  const connected = new Set(data.connectedHandles ?? []);
 
-  const yPos = (idx, total) => `${((idx + 1) * 100) / (total + 1)}%`;
+  const yPos = (index) => `${HEADER_H + PORTS_PAD + index * PORT_ROW_H + PORT_ROW_H / 2}px`;
 
   return (
     <div className={`rf-block ${selected ? 'rf-block--selected' : ''}`}>
@@ -59,9 +61,10 @@ function BlockNode({ data, selected }) {
           type="target"
           position={Position.Left}
           className="rf-block__handle"
-          style={{ top: yPos(idx, inPorts.length) }}
+          style={{ top: yPos(idx), background: connected.has(p.id) ? '#94a3b8' : '#ffffff' }}
         />
       ))}
+
       {outPorts.map((p, idx) => (
         <Handle
           key={p.id}
@@ -69,7 +72,7 @@ function BlockNode({ data, selected }) {
           type="source"
           position={Position.Right}
           className="rf-block__handle"
-          style={{ top: yPos(idx, outPorts.length) }}
+          style={{ top: yPos(idx), background: connected.has(p.id) ? '#94a3b8' : '#ffffff' }}
         />
       ))}
 
@@ -94,8 +97,8 @@ function BlockNode({ data, selected }) {
 
       <div className="rf-block__attrs">
         {data.attributes.map((a) => (
-          <div className="rf-block__attr" key={a.key}>
-            <span>{a.label}</span>
+          <div className="rf-block__attr" key={a.name}>
+            <span>{a.name}</span>
             <strong>{a.value}</strong>
           </div>
         ))}
@@ -134,6 +137,33 @@ function DiagramApp() {
     return g;
   }, [blockTypes]);
 
+  const connectedByNode = useMemo(() => {
+    const map = {};
+    for (const e of edges) {
+      if (e.source && e.sourceHandle) {
+        map[e.source] ??= new Set();
+        map[e.source].add(e.sourceHandle);
+      }
+      if (e.target && e.targetHandle) {
+        map[e.target] ??= new Set();
+        map[e.target].add(e.targetHandle);
+      }
+    }
+    return map;
+  }, [edges]);
+
+  const renderedNodes = useMemo(
+    () =>
+      nodes.map((n) => ({
+        ...n,
+        data: {
+          ...n.data,
+          connectedHandles: [...(connectedByNode[n.id] ?? [])],
+        },
+      })),
+    [nodes, connectedByNode]
+  );
+
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) || null;
 
   const closeMenu = () => setMenu((m) => ({ ...m, visible: false }));
@@ -160,7 +190,7 @@ function DiagramApp() {
         instanceName: typeDef.name,
         inputs: typeDef.inputs,
         outputs: typeDef.outputs,
-        attributes: typeDef.attributes.map((a) => ({ ...a, value: a.defaultValue ?? '' })),
+        attributes: typeDef.attributes.map((name) => ({ name, value: '' })),
       },
     };
     setNodes((prev) => [...prev, node]);
@@ -173,8 +203,8 @@ function DiagramApp() {
         addEdge(
           {
             ...params,
-            type: 'smoothstep',
-            style: { stroke: '#cbd5e1', strokeWidth: 2, strokeDasharray: '5 5' },
+            type: 'bezier',
+            style: { stroke: '#cbd5e1', strokeWidth: 2 },
           },
           prev
         )
@@ -199,7 +229,7 @@ function DiagramApp() {
     setDraftName(t.name);
     setDraftInputs(t.inputs.map((x) => ({ ...x })));
     setDraftOutputs(t.outputs.map((x) => ({ ...x })));
-    setDraftAttrs(t.attributes.map((x) => ({ ...x })));
+    setDraftAttrs(t.attributes.map((name) => ({ name })));
     setEditorOpen(true);
     closeMenu();
   };
@@ -218,9 +248,7 @@ function DiagramApp() {
       outputs: draftOutputs
         .filter((p) => p.name.trim() && p.type.trim())
         .map((p, i) => ({ id: p.id || `out-${slugify(p.name)}-${i}`, name: p.name.trim(), type: p.type.trim() })),
-      attributes: draftAttrs
-        .filter((a) => a.key.trim() && a.label.trim())
-        .map((a) => ({ ...a, key: a.key.trim(), label: a.label.trim() })),
+      attributes: draftAttrs.filter((a) => a.name.trim()).map((a) => a.name.trim()),
     };
 
     if (editingId) {
@@ -236,11 +264,17 @@ function DiagramApp() {
     setNodes((prev) => prev.map((n) => (n.id === selectedNodeId ? { ...n, data: { ...n.data, instanceName: name } } : n)));
   };
 
-  const updateNodeAttr = (key, value) => {
+  const updateNodeAttr = (name, value) => {
     setNodes((prev) =>
       prev.map((n) =>
         n.id === selectedNodeId
-          ? { ...n, data: { ...n.data, attributes: n.data.attributes.map((a) => (a.key === key ? { ...a, value } : a)) } }
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                attributes: n.data.attributes.map((a) => (a.name === name ? { ...a, value } : a)),
+              },
+            }
           : n
       )
     );
@@ -250,11 +284,12 @@ function DiagramApp() {
     <div className="layout">
       <div className="canvas" ref={wrapperRef} onContextMenu={openMenu}>
         <ReactFlow
-          nodes={nodes}
+          nodes={renderedNodes}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          connectionLineType={ConnectionLineType.Bezier}
           onNodeClick={(_, n) => setSelectedNodeId(n.id)}
           onPaneClick={() => {
             setSelectedNodeId(null);
@@ -303,9 +338,9 @@ function DiagramApp() {
               <input value={selectedNode.data.instanceName} onChange={(e) => updateNodeName(e.target.value)} />
             </label>
             {selectedNode.data.attributes.map((a) => (
-              <label className="field" key={a.key}>
-                <span>{a.label}</span>
-                <input value={a.value} onChange={(e) => updateNodeAttr(a.key, e.target.value)} />
+              <label className="field" key={a.name}>
+                <span>{a.name}</span>
+                <input value={a.value} onChange={(e) => updateNodeAttr(a.name, e.target.value)} />
               </label>
             ))}
           </>
@@ -374,26 +409,14 @@ function DiagramApp() {
             <div className="section">
               <div className="section__head">
                 <span>Атрибуты</span>
-                <button onClick={() => setDraftAttrs((prev) => [...prev, { key: '', label: '', defaultValue: '' }])}>+ Атрибут</button>
+                <button onClick={() => setDraftAttrs((prev) => [...prev, { name: '' }])}>+ Атрибут</button>
               </div>
               {draftAttrs.map((a, i) => (
-                <div className="row3" key={`attr-${i}`}>
+                <div className="row row--single" key={`attr-${i}`}>
                   <input
-                    placeholder="key"
-                    value={a.key}
-                    onChange={(e) => setDraftAttrs((prev) => prev.map((it, idx) => (idx === i ? { ...it, key: e.target.value } : it)))}
-                  />
-                  <input
-                    placeholder="label"
-                    value={a.label}
-                    onChange={(e) => setDraftAttrs((prev) => prev.map((it, idx) => (idx === i ? { ...it, label: e.target.value } : it)))}
-                  />
-                  <input
-                    placeholder="default"
-                    value={a.defaultValue}
-                    onChange={(e) =>
-                      setDraftAttrs((prev) => prev.map((it, idx) => (idx === i ? { ...it, defaultValue: e.target.value } : it)))
-                    }
+                    placeholder="Имя атрибута"
+                    value={a.name}
+                    onChange={(e) => setDraftAttrs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))}
                   />
                 </div>
               ))}
