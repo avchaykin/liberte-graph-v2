@@ -21,7 +21,11 @@ const STORAGE_SCHEMAS = 'liberte.schemas.v1';
 const STORAGE_AUTOSAVE = 'liberte.autosave.v1';
 const STORAGE_LAST_NAME = 'liberte.lastName.v1';
 
-const PASTEL_COLORS = ['#FDE68A', '#FBCFE8', '#BFDBFE', '#C7D2FE', '#BBF7D0', '#FED7AA', '#E9D5FF', '#A7F3D0'];
+const PASTEL_COLORS = [
+  '#FDE68A', '#FBCFE8', '#BFDBFE', '#C7D2FE', '#BBF7D0', '#FED7AA', '#E9D5FF', '#A7F3D0',
+  '#FCA5A5', '#FB7185', '#F59E0B', '#F97316', '#A78BFA', '#8B5CF6', '#22D3EE', '#06B6D4',
+  '#34D399', '#10B981', '#60A5FA', '#3B82F6', '#94A3B8', '#64748B', '#475569', '#334155'
+];
 
 const slugify = (value) =>
   value
@@ -480,6 +484,15 @@ function DiagramApp() {
     closeMenu();
   };
 
+  const deleteType = (typeId) => {
+    setBlockTypes((prev) => prev.filter((t) => t.id !== typeId));
+    const remainingNodes = nodes.filter((n) => n.data.typeId !== typeId);
+    const remainingIds = new Set(remainingNodes.map((n) => n.id));
+    setNodes(remainingNodes);
+    setEdges((prev) => prev.filter((e) => remainingIds.has(e.source) && remainingIds.has(e.target)));
+    if (selectedNode && selectedNode.data.typeId === typeId) setSelectedNodeId(null);
+  };
+
   const saveType = () => {
     if (!draftGroup.trim() || !draftName.trim()) return;
     const id = buildTypeId(draftGroup, draftName);
@@ -644,6 +657,16 @@ function DiagramApp() {
                     </button>
                     <button className="menu__edit" onClick={() => openEdit(t)}>
                       Изм.
+                    </button>
+                    <button
+                      className="menu__delete"
+                      onClick={() => {
+                        if (confirm(`Удалить тип блока "${t.name}" и все его экземпляры на схеме?`)) {
+                          deleteType(t.id);
+                        }
+                      }}
+                    >
+                      Удал.
                     </button>
                   </div>
                 ))}
