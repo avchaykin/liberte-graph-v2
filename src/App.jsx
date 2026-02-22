@@ -219,6 +219,7 @@ function DiagramApp() {
         const mismatch = sType && tType && sType !== tType;
         return {
           ...e,
+          type: e.type === 'bezier' ? 'default' : e.type || 'default',
           style: mismatch
             ? { ...(e.style || {}), stroke: '#ef4444', strokeWidth: 2.5 }
             : { ...(e.style || {}), stroke: '#cbd5e1', strokeWidth: 2 },
@@ -246,7 +247,12 @@ function DiagramApp() {
     (payload, { fromAutosave = false } = {}) => {
       setBlockTypes(payload.blockTypes || initialBlockTypes);
       setNodes(payload.nodes || []);
-      setEdges(payload.edges || []);
+      setEdges(
+        (payload.edges || []).map((e) => ({
+          ...e,
+          type: e.type === 'bezier' ? 'default' : e.type || 'default',
+        }))
+      );
       setSelectedNodeId(null);
       if (!fromAutosave) {
         setCurrentSchemaName(payload.name || '');
