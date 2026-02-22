@@ -124,8 +124,6 @@ function BlockNode({ data, selected }) {
   );
 }
 
-const nodeTypes = { block: BlockNode };
-
 function DiagramApp() {
   const rf = useReactFlow();
   const wrapperRef = useRef(null);
@@ -153,6 +151,8 @@ function DiagramApp() {
   const [draftInputs, setDraftInputs] = useState([]);
   const [draftOutputs, setDraftOutputs] = useState([]);
   const [draftAttrs, setDraftAttrs] = useState([]);
+
+  const nodeTypes = useMemo(() => ({ block: BlockNode }), []);
 
   const grouped = useMemo(() => {
     const g = {};
@@ -392,7 +392,7 @@ function DiagramApp() {
         return addEdge(
           {
             ...params,
-            type: 'bezier',
+            type: 'default',
             style: { stroke: '#cbd5e1', strokeWidth: 2 },
           },
           filtered
@@ -419,11 +419,11 @@ function DiagramApp() {
       const dx = endX - (reconnectRef.current.startX ?? endX);
       const dy = endY - (reconnectRef.current.startY ?? endY);
       const movedDistance = Math.hypot(dx, dy);
-      const shouldDisconnect =
-        reconnectRef.current.removedEdge && !reconnectRef.current.didConnect && movedDistance >= 8;
+      const removedEdge = reconnectRef.current.removedEdge;
+      const shouldDisconnect = removedEdge && !reconnectRef.current.didConnect && movedDistance >= 8;
 
       if (shouldDisconnect) {
-        setEdges((prev) => prev.filter((e) => e.id !== reconnectRef.current.removedEdge.id));
+        setEdges((prev) => prev.filter((e) => e.id !== removedEdge.id));
       }
 
       reconnectRef.current = { removedEdge: null, didConnect: false, startX: 0, startY: 0 };
@@ -584,7 +584,6 @@ function DiagramApp() {
           onConnectStart={onConnectStart}
           onConnectEnd={onConnectEnd}
           onReconnect={onReconnect}
-          edgesReconnectable
           connectionLineType={ConnectionLineType.Bezier}
           onNodeClick={(_, n) => setSelectedNodeId(n.id)}
           onPaneClick={() => {
