@@ -383,9 +383,12 @@ function DiagramApp() {
     (params) => {
       reconnectRef.current.didConnect = true;
       setEdges((prev) => {
-        const filtered = prev.filter(
-          (e) => !(e.target === params.target && e.targetHandle === params.targetHandle)
-        );
+        const filtered = prev.filter((e) => {
+          if (reconnectRef.current.removedEdge && e.id === reconnectRef.current.removedEdge.id) {
+            return false;
+          }
+          return !(e.target === params.target && e.targetHandle === params.targetHandle);
+        });
         return addEdge(
           {
             ...params,
@@ -399,36 +402,28 @@ function DiagramApp() {
     [setEdges]
   );
 
-  const onConnectStart = useCallback(
-    (event, info) => {
-      const startX = event?.clientX ?? event?.touches?.[0]?.clientX ?? 0;
-      const startY = event?.clientY ?? event?.touches?.[0]?.clientY ?? 0;
-      reconnectRef.current = { removedEdge: null, didConnect: false, startX, startY };
-      if (info.handleType !== 'target') return;
-      setEdges((prev) => {
-        const existing = prev.find(
-          (e) => e.target === info.nodeId && e.targetHandle === info.handleId
-        );
-        reconnectRef.current.removedEdge = existing || null;
-        if (!existing) return prev;
-        return prev.filter((e) => e.id !== existing.id);
-      });
-    },
-    [setEdges]
-  );
+  const onConnectStart = useCallback((event, info) => {
+    const startX = event?.clientX ?? event?.touches?.[0]?.clientX ?? 0;
+    const startY = event?.clientY ?? event?.touches?.[0]?.clientY ?? 0;
+    let removedEdge = null;
+    if (info.handleType === 'target') {
+      removedEdge = edges.find((e) => e.target === info.nodeId && e.targetHandle === info.handleId) || null;
+    }
+    reconnectRef.current = { removedEdge, didConnect: false, startX, startY };
+  }, [edges]);
 
   const onConnectEnd = useCallback(
     (event) => {
-      const endX = event?.clientX ?? event?.changedTouches?.[0]?.clientX ?? 0;
-      const endY = event?.clientY ?? event?.changedTouches?.[0]?.clientY ?? 0;
+      const endX = event?.clientX ?? event?.changedTouches?.[0]?.clientX ?? reconnectRef.current.startX;
+      const endY = event?.clientY ?? event?.changedTouches?.[0]?.clientY ?? reconnectRef.current.startY;
       const dx = endX - (reconnectRef.current.startX ?? endX);
       const dy = endY - (reconnectRef.current.startY ?? endY);
       const movedDistance = Math.hypot(dx, dy);
-      const shouldRestore =
-        reconnectRef.current.removedEdge && !reconnectRef.current.didConnect && movedDistance < 8;
+      const shouldDisconnect =
+        reconnectRef.current.removedEdge && !reconnectRef.current.didConnect && movedDistance >= 8;
 
-      if (shouldRestore) {
-        setEdges((prev) => [...prev, reconnectRef.current.removedEdge]);
+      if (shouldDisconnect) {
+        setEdges((prev) => prev.filter((e) => e.id !== reconnectRef.current.removedEdge.id));
       }
 
       reconnectRef.current = { removedEdge: null, didConnect: false, startX: 0, startY: 0 };
