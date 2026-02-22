@@ -262,7 +262,7 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 .menu__edit {
   border: none;
   border-radius: 8px;
-  background: #f59e0b;
+  background: #e2e8f0;
   color: #111827;
   padding: 7px 8px;
   cursor: pointer;
