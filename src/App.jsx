@@ -158,6 +158,7 @@ function DiagramApp() {
   const [draftInputs, setDraftInputs] = useState([]);
   const [draftOutputs, setDraftOutputs] = useState([]);
   const [draftAttrs, setDraftAttrs] = useState([]);
+  const [dragState, setDragState] = useState({ list: null, index: null });
 
   const nodeTypes = useMemo(() => ({ block: BlockNode }), []);
 
@@ -406,15 +407,25 @@ function DiagramApp() {
 
   const buildTypeId = (group, name) => `${slugify(group)}/${slugify(name)}`;
 
-  const moveItem = (setter, index, direction) => {
+  const reorderList = (setter, from, to) => {
     setter((prev) => {
-      const nextIndex = index + direction;
-      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
+      if (from === to || from < 0 || to < 0 || from >= prev.length || to >= prev.length) return prev;
       const copy = [...prev];
-      [copy[index], copy[nextIndex]] = [copy[nextIndex], copy[index]];
+      const [item] = copy.splice(from, 1);
+      copy.splice(to, 0, item);
       return copy;
     });
   };
+
+  const onDragStart = (list, index) => setDragState({ list, index });
+  const onDragOver = (event) => event.preventDefault();
+  const onDropRow = (list, index) => {
+    if (dragState.list !== list || dragState.index == null) return;
+    const setter = list === 'inputs' ? setDraftInputs : list === 'outputs' ? setDraftOutputs : setDraftAttrs;
+    reorderList(setter, dragState.index, index);
+    setDragState({ list: null, index: null });
+  };
+  const onDragEnd = () => setDragState({ list: null, index: null });
 
   const instantiate = (typeDef) => {
     const node = {
@@ -698,8 +709,8 @@ function DiagramApp() {
                     <button className="menu__add" onClick={() => instantiate(t)}>
                       {t.name}
                     </button>
-                    <button className="menu__edit" onClick={() => openEdit(t)} aria-label="Редактировать">
-                      ✏️
+                    <button className="menu__edit icon-btn" onClick={() => openEdit(t)} aria-label="Редактировать">
+                      <span className="material-symbols-outlined">edit</span>
                     </button>
                   </div>
                 ))}
@@ -730,8 +741,8 @@ function DiagramApp() {
               <div className="inspector-desc">
                 <div className="inspector-desc__head">
                   <strong>Описание блока</strong>
-                  <button className="menu__edit" type="button" onClick={() => openEdit(selectedType)}>
-                    ✏️ Редактировать тип
+                  <button className="menu__edit icon-btn" type="button" onClick={() => openEdit(selectedType)} aria-label="Редактировать тип">
+                    <span className="material-symbols-outlined">edit</span>
                   </button>
                 </div>
 
@@ -817,7 +828,15 @@ function DiagramApp() {
                 <button onClick={() => setDraftInputs((prev) => [...prev, { id: nanoid(6), name: '', type: '' }])}>+ Вход</button>
               </div>
               {draftInputs.map((p, i) => (
-                <div className="row row--with-controls" key={`in-${i}`}>
+                <div
+                  className="row row--with-controls"
+                  key={`in-${i}`}
+                  draggable
+                  onDragStart={() => onDragStart('inputs', i)}
+                  onDragOver={onDragOver}
+                  onDrop={() => onDropRow('inputs', i)}
+                  onDragEnd={onDragEnd}
+                >
                   <input
                     placeholder="Название"
                     value={p.name}
@@ -829,9 +848,10 @@ function DiagramApp() {
                     onChange={(e) => setDraftInputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, type: e.target.value } : it)))}
                   />
                   <div className="row-controls">
-                    <button type="button" onClick={() => moveItem(setDraftInputs, i, -1)}>↑</button>
-                    <button type="button" onClick={() => moveItem(setDraftInputs, i, 1)}>↓</button>
-                    <button type="button" className="row-controls__delete" onClick={() => setDraftInputs((prev) => prev.filter((_, idx) => idx !== i))}>✕</button>
+                    <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
+                    <button type="button" className="row-controls__delete" onClick={() => setDraftInputs((prev) => prev.filter((_, idx) => idx !== i))}>
+                      <span className="material-symbols-outlined">delete</span>
+                    </button>
                   </div>
                 </div>
               ))}
@@ -843,7 +863,15 @@ function DiagramApp() {
                 <button onClick={() => setDraftOutputs((prev) => [...prev, { id: nanoid(6), name: '', type: '' }])}>+ Выход</button>
               </div>
               {draftOutputs.map((p, i) => (
-                <div className="row row--with-controls" key={`out-${i}`}>
+                <div
+                  className="row row--with-controls"
+                  key={`out-${i}`}
+                  draggable
+                  onDragStart={() => onDragStart('outputs', i)}
+                  onDragOver={onDragOver}
+                  onDrop={() => onDropRow('outputs', i)}
+                  onDragEnd={onDragEnd}
+                >
                   <input
                     placeholder="Название"
                     value={p.name}
@@ -855,9 +883,10 @@ function DiagramApp() {
                     onChange={(e) => setDraftOutputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, type: e.target.value } : it)))}
                   />
                   <div className="row-controls">
-                    <button type="button" onClick={() => moveItem(setDraftOutputs, i, -1)}>↑</button>
-                    <button type="button" onClick={() => moveItem(setDraftOutputs, i, 1)}>↓</button>
-                    <button type="button" className="row-controls__delete" onClick={() => setDraftOutputs((prev) => prev.filter((_, idx) => idx !== i))}>✕</button>
+                    <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
+                    <button type="button" className="row-controls__delete" onClick={() => setDraftOutputs((prev) => prev.filter((_, idx) => idx !== i))}>
+                      <span className="material-symbols-outlined">delete</span>
+                    </button>
                   </div>
                 </div>
               ))}
@@ -869,7 +898,15 @@ function DiagramApp() {
                 <button onClick={() => setDraftAttrs((prev) => [...prev, { name: '', hidden: false }])}>+ Атрибут</button>
               </div>
               {draftAttrs.map((a, i) => (
-                <div className="row row--attr" key={`attr-${i}`}>
+                <div
+                  className="row row--attr"
+                  key={`attr-${i}`}
+                  draggable
+                  onDragStart={() => onDragStart('attrs', i)}
+                  onDragOver={onDragOver}
+                  onDrop={() => onDropRow('attrs', i)}
+                  onDragEnd={onDragEnd}
+                >
                   <input
                     placeholder="Имя атрибута"
                     value={a.name}
@@ -888,9 +925,10 @@ function DiagramApp() {
                     скрытый
                   </label>
                   <div className="row-controls">
-                    <button type="button" onClick={() => moveItem(setDraftAttrs, i, -1)}>↑</button>
-                    <button type="button" onClick={() => moveItem(setDraftAttrs, i, 1)}>↓</button>
-                    <button type="button" className="row-controls__delete" onClick={() => setDraftAttrs((prev) => prev.filter((_, idx) => idx !== i))}>✕</button>
+                    <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
+                    <button type="button" className="row-controls__delete" onClick={() => setDraftAttrs((prev) => prev.filter((_, idx) => idx !== i))}>
+                      <span className="material-symbols-outlined">delete</span>
+                    </button>
                   </div>
                 </div>
               ))}
