@@ -369,10 +369,8 @@ function DiagramApp() {
   };
 
   const instantiate = (typeDef) => {
-    const nodeId = nanoid(10);
-    const defaultName = typeDef.name;
     const node = {
-      id: nodeId,
+      id: nanoid(10),
       type: 'block',
       position: { x: menu.flowX, y: menu.flowY },
       data: {
@@ -385,12 +383,7 @@ function DiagramApp() {
         attributes: typeDef.attributes.map((attr) => ({
           name: attr.name,
           hidden: Boolean(attr.hidden),
-          value:
-            attr.name.toLowerCase() === 'id'
-              ? nodeId
-              : attr.name.toLowerCase() === 'name'
-                ? defaultName
-                : '',
+          value: '',
         })),
       },
     };
@@ -529,17 +522,11 @@ function DiagramApp() {
               instanceName: n.data.instanceName?.trim() || normalized.name,
               inputs: normalized.inputs,
               outputs: normalized.outputs,
-              attributes: normalized.attributes.map((attr) => {
-                const lower = attr.name.toLowerCase();
-                const fallbackName = n.data.instanceName?.trim() || normalized.name;
-                return {
-                  name: attr.name,
-                  hidden: Boolean(attr.hidden),
-                  value:
-                    oldAttrMap[attr.name] ??
-                    (lower === 'id' ? n.id : lower === 'name' ? fallbackName : ''),
-                };
-              }),
+              attributes: normalized.attributes.map((attr) => ({
+                name: attr.name,
+                hidden: Boolean(attr.hidden),
+                value: oldAttrMap[attr.name] ?? '',
+              })),
             },
           };
         })
@@ -561,9 +548,6 @@ function DiagramApp() {
           data: {
             ...n.data,
             instanceName: effectiveName,
-            attributes: (n.data.attributes || []).map((a) =>
-              a.name.toLowerCase() === 'name' ? { ...a, value: effectiveName } : a
-            ),
           },
         };
       })
