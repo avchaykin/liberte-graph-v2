@@ -145,6 +145,7 @@ function DiagramApp() {
   const [showSaveAs, setShowSaveAs] = useState(false);
   const [draftSchemaName, setDraftSchemaName] = useState('');
   const [showLoad, setShowLoad] = useState(false);
+  const [savePulse, setSavePulse] = useState(false);
 
   const [menu, setMenu] = useState({ visible: false, x: 0, y: 0, flowX: 0, flowY: 0 });
   const [hoveredGroup, setHoveredGroup] = useState('');
@@ -320,17 +321,25 @@ function DiagramApp() {
     [buildPayload]
   );
 
+  const triggerSavePulse = () => {
+    setSavePulse(true);
+    setTimeout(() => setSavePulse(false), 700);
+  };
+
   const handleSave = () => {
     if (!currentSchemaName) {
       setDraftSchemaName('');
       setShowSaveAs(true);
       return;
     }
-    persistNamedSchema(currentSchemaName);
+    if (persistNamedSchema(currentSchemaName)) triggerSavePulse();
   };
 
   const handleSaveAs = () => {
-    if (persistNamedSchema(draftSchemaName)) setShowSaveAs(false);
+    if (persistNamedSchema(draftSchemaName)) {
+      setShowSaveAs(false);
+      triggerSavePulse();
+    }
   };
 
   const handleLoad = (name) => {
@@ -613,9 +622,10 @@ function DiagramApp() {
     <div className="layout">
       <div className="canvas" ref={wrapperRef} onContextMenu={openMenu}>
         <div className="topbar">
-          <button onClick={handleNewSchema}>Новая схема</button>
-          <button onClick={handleSave}>Сохранить</button>
+          <button className="topbar__btn" onClick={handleNewSchema}>Новая схема</button>
+          <button className={`topbar__btn ${savePulse ? 'topbar__btn--saving' : ''}`} onClick={handleSave}>Сохранить</button>
           <button
+            className="topbar__btn"
             onClick={() => {
               setDraftSchemaName(currentSchemaName || '');
               setShowSaveAs(true);
@@ -623,9 +633,9 @@ function DiagramApp() {
           >
             Сохранить как
           </button>
-          <button onClick={() => setShowLoad(true)}>Загрузить</button>
-          <button onClick={handleExport}>Экспорт JSON</button>
-          <button onClick={() => importInputRef.current?.click()}>Импорт JSON</button>
+          <button className="topbar__btn" onClick={() => setShowLoad(true)}>Загрузить</button>
+          <button className="topbar__btn" onClick={handleExport}>Экспорт JSON</button>
+          <button className="topbar__btn" onClick={() => importInputRef.current?.click()}>Импорт JSON</button>
           <input
             ref={importInputRef}
             type="file"
