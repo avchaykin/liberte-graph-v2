@@ -787,6 +787,7 @@ function DiagramApp() {
                   <div className="row-controls">
                     <button type="button" onClick={() => moveItem(setDraftInputs, i, -1)}>↑</button>
                     <button type="button" onClick={() => moveItem(setDraftInputs, i, 1)}>↓</button>
+                    <button type="button" className="row-controls__delete" onClick={() => setDraftInputs((prev) => prev.filter((_, idx) => idx !== i))}>✕</button>
                   </div>
                 </div>
               ))}
@@ -812,6 +813,7 @@ function DiagramApp() {
                   <div className="row-controls">
                     <button type="button" onClick={() => moveItem(setDraftOutputs, i, -1)}>↑</button>
                     <button type="button" onClick={() => moveItem(setDraftOutputs, i, 1)}>↓</button>
+                    <button type="button" className="row-controls__delete" onClick={() => setDraftOutputs((prev) => prev.filter((_, idx) => idx !== i))}>✕</button>
                   </div>
                 </div>
               ))}
@@ -844,6 +846,7 @@ function DiagramApp() {
                   <div className="row-controls">
                     <button type="button" onClick={() => moveItem(setDraftAttrs, i, -1)}>↑</button>
                     <button type="button" onClick={() => moveItem(setDraftAttrs, i, 1)}>↓</button>
+                    <button type="button" className="row-controls__delete" onClick={() => setDraftAttrs((prev) => prev.filter((_, idx) => idx !== i))}>✕</button>
                   </div>
                 </div>
               ))}

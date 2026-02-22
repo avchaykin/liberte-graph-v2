@@ -399,6 +399,12 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   cursor: pointer;
 }
 
+.row-controls .row-controls__delete {
+  border-color: #fecaca;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .row3 {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
