@@ -159,6 +159,7 @@ function DiagramApp() {
   const [draftOutputs, setDraftOutputs] = useState([]);
   const [draftAttrs, setDraftAttrs] = useState([]);
   const [dragState, setDragState] = useState({ list: null, index: null });
+  const [menuDrag, setMenuDrag] = useState({ kind: null, group: null, typeId: null });
 
   const nodeTypes = useMemo(() => ({ block: BlockNode }), []);
 
@@ -170,6 +171,8 @@ function DiagramApp() {
     }
     return g;
   }, [blockTypes]);
+
+  const groupOrder = useMemo(() => Object.keys(grouped), [grouped]);
 
   const savedSchemas = useMemo(() => {
     try {
@@ -398,11 +401,10 @@ function DiagramApp() {
       event.preventDefault();
       event.stopPropagation();
       const flow = rf.screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      const groups = Object.keys(grouped);
-      setHoveredGroup(groups[0] || '');
+      setHoveredGroup(groupOrder[0] || '');
       setMenu({ visible: true, x: event.clientX, y: event.clientY, flowX: flow.x, flowY: flow.y });
     },
-    [rf, grouped]
+    [rf, groupOrder]
   );
 
   const buildTypeId = (group, name) => `${slugify(group)}/${slugify(name)}`;
@@ -426,6 +428,51 @@ function DiagramApp() {
     setDragState({ list: null, index: null });
   };
   const onDragEnd = () => setDragState({ list: null, index: null });
+
+  const onMenuDragOver = (event) => event.preventDefault();
+
+  const onMenuGroupDragStart = (group) => setMenuDrag({ kind: 'group', group, typeId: null });
+  const onMenuGroupDrop = (targetGroup) => {
+    if (menuDrag.kind !== 'group' || !menuDrag.group || menuDrag.group === targetGroup) return;
+    const from = groupOrder.indexOf(menuDrag.group);
+    const to = groupOrder.indexOf(targetGroup);
+    if (from < 0 || to < 0) return;
+
+    setBlockTypes((prev) => {
+      const buckets = {};
+      for (const t of prev) {
+        buckets[t.group] ??= [];
+        buckets[t.group].push(t);
+      }
+      const nextGroups = [...groupOrder];
+      const [moved] = nextGroups.splice(from, 1);
+      nextGroups.splice(to, 0, moved);
+      return nextGroups.flatMap((g) => buckets[g] || []);
+    });
+    setMenuDrag({ kind: null, group: null, typeId: null });
+  };
+
+  const onMenuTypeDragStart = (group, typeId) => setMenuDrag({ kind: 'type', group, typeId });
+  const onMenuTypeDrop = (group, targetTypeId) => {
+    if (menuDrag.kind !== 'type' || menuDrag.group !== group || !menuDrag.typeId || menuDrag.typeId === targetTypeId) return;
+
+    setBlockTypes((prev) => {
+      const inGroup = prev.filter((t) => t.group === group);
+      const from = inGroup.findIndex((t) => t.id === menuDrag.typeId);
+      const to = inGroup.findIndex((t) => t.id === targetTypeId);
+      if (from < 0 || to < 0) return prev;
+
+      const reordered = [...inGroup];
+      const [moved] = reordered.splice(from, 1);
+      reordered.splice(to, 0, moved);
+
+      let cursor = 0;
+      return prev.map((t) => (t.group === group ? reordered[cursor++] : t));
+    });
+    setMenuDrag({ kind: null, group: null, typeId: null });
+  };
+
+  const onMenuDragEnd = () => setMenuDrag({ kind: null, group: null, typeId: null });
 
   const instantiate = (typeDef) => {
     const node = {
@@ -700,14 +747,20 @@ function DiagramApp() {
               <button onClick={openCreate}>+ Новый</button>
             </div>
             <div className="menu__groups">
-              {Object.keys(grouped).map((group) => (
+              {groupOrder.map((group) => (
                 <button
                   key={group}
                   className={`menu__group-btn ${hoveredGroup === group ? 'menu__group-btn--active' : ''}`}
                   onMouseEnter={() => setHoveredGroup(group)}
                   onFocus={() => setHoveredGroup(group)}
+                  onDragOver={onMenuDragOver}
+                  onDrop={() => onMenuGroupDrop(group)}
+                  onDragStart={() => onMenuGroupDragStart(group)}
+                  onDragEnd={onMenuDragEnd}
+                  draggable
                   type="button"
                 >
+                  <span className="material-symbols-outlined drag-handle" aria-hidden>drag_indicator</span>
                   {group}
                 </button>
               ))}
@@ -717,7 +770,16 @@ function DiagramApp() {
               <div className="menu__submenu">
                 <div className="menu__group-title">{hoveredGroup}</div>
                 {grouped[hoveredGroup].map((t) => (
-                  <div key={t.id} className="menu__item">
+                  <div
+                    key={t.id}
+                    className="menu__item"
+                    draggable
+                    onDragStart={() => onMenuTypeDragStart(hoveredGroup, t.id)}
+                    onDragOver={onMenuDragOver}
+                    onDrop={() => onMenuTypeDrop(hoveredGroup, t.id)}
+                    onDragEnd={onMenuDragEnd}
+                  >
+                    <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
                     <button className="menu__add" onClick={() => instantiate(t)}>
                       {t.name}
                     </button>
