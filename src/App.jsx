@@ -5,8 +5,10 @@ import ReactFlow, {
   ConnectionLineType,
   Controls,
   Handle,
+  NodeResizer,
   Position,
   ReactFlowProvider,
+  reconnectEdge,
   useEdgesState,
   useNodesState,
   useReactFlow,
@@ -64,6 +66,7 @@ function BlockNode({ data, selected }) {
 
   return (
     <div className={`rf-block ${selected ? 'rf-block--selected' : ''}`}>
+      <NodeResizer isVisible={selected} minWidth={220} minHeight={150} lineStyle={{ borderColor: '#93c5fd' }} />
       <div className="rf-block__header" style={{ background: data.headerColor || '#ffffff' }}>
         {title}
       </div>
@@ -192,6 +195,35 @@ function DiagramApp() {
         },
       })),
     [nodes, connectedByNode]
+  );
+
+  const getHandleType = useCallback(
+    (nodeId, handleId) => {
+      const node = nodes.find((n) => n.id === nodeId);
+      if (!node) return '';
+      const inPort = (node.data.inputs || []).find((p) => p.id === handleId);
+      if (inPort) return (inPort.type || '').trim();
+      const outPort = (node.data.outputs || []).find((p) => p.id === handleId);
+      if (outPort) return (outPort.type || '').trim();
+      return '';
+    },
+    [nodes]
+  );
+
+  const renderedEdges = useMemo(
+    () =>
+      edges.map((e) => {
+        const sType = getHandleType(e.source, e.sourceHandle);
+        const tType = getHandleType(e.target, e.targetHandle);
+        const mismatch = sType && tType && sType !== tType;
+        return {
+          ...e,
+          style: mismatch
+            ? { ...(e.style || {}), stroke: '#ef4444', strokeWidth: 2.5 }
+            : { ...(e.style || {}), stroke: '#cbd5e1', strokeWidth: 2 },
+        };
+      }),
+    [edges, getHandleType]
   );
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) || null;
@@ -348,16 +380,26 @@ function DiagramApp() {
 
   const onConnect = useCallback(
     (params) =>
-      setEdges((prev) =>
-        addEdge(
+      setEdges((prev) => {
+        const filtered = prev.filter(
+          (e) => !(e.target === params.target && e.targetHandle === params.targetHandle)
+        );
+        return addEdge(
           {
             ...params,
             type: 'bezier',
             style: { stroke: '#cbd5e1', strokeWidth: 2 },
           },
-          prev
-        )
-      ),
+          filtered
+        );
+      }),
+    [setEdges]
+  );
+
+  const onReconnect = useCallback(
+    (oldEdge, newConnection) => {
+      setEdges((prev) => reconnectEdge(oldEdge, newConnection, prev));
+    },
     [setEdges]
   );
 
@@ -399,10 +441,10 @@ function DiagramApp() {
       headerColor: draftHeaderColor || PASTEL_COLORS[0],
       inputs: draftInputs
         .filter((p) => p.name.trim())
-        .map((p, i) => ({ id: p.id || `in-${slugify(p.name)}-${i}`, name: p.name.trim(), type: p.type?.trim() || '' })),
+        .map((p) => ({ id: p.id || nanoid(6), name: p.name.trim(), type: p.type?.trim() || '' })),
       outputs: draftOutputs
         .filter((p) => p.name.trim())
-        .map((p, i) => ({ id: p.id || `out-${slugify(p.name)}-${i}`, name: p.name.trim(), type: p.type?.trim() || '' })),
+        .map((p) => ({ id: p.id || nanoid(6), name: p.name.trim(), type: p.type?.trim() || '' })),
       attributes: draftAttrs
         .filter((a) => a.name.trim())
         .map((a) => ({ name: a.name.trim(), hidden: Boolean(a.hidden) })),
@@ -500,10 +542,12 @@ function DiagramApp() {
 
         <ReactFlow
           nodes={renderedNodes}
-          edges={edges}
+          edges={renderedEdges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onReconnect={onReconnect}
+          edgesReconnectable
           connectionLineType={ConnectionLineType.Bezier}
           onNodeClick={(_, n) => setSelectedNodeId(n.id)}
           onPaneClick={() => {
@@ -597,7 +641,7 @@ function DiagramApp() {
             <div className="section">
               <div className="section__head">
                 <span>Входы</span>
-                <button onClick={() => setDraftInputs((prev) => [...prev, { id: '', name: '', type: '' }])}>+ Вход</button>
+                <button onClick={() => setDraftInputs((prev) => [...prev, { id: nanoid(6), name: '', type: '' }])}>+ Вход</button>
               </div>
               {draftInputs.map((p, i) => (
                 <div className="row row--with-controls" key={`in-${i}`}>
@@ -622,7 +666,7 @@ function DiagramApp() {
             <div className="section">
               <div className="section__head">
                 <span>Выходы</span>
-                <button onClick={() => setDraftOutputs((prev) => [...prev, { id: '', name: '', type: '' }])}>+ Выход</button>
+                <button onClick={() => setDraftOutputs((prev) => [...prev, { id: nanoid(6), name: '', type: '' }])}>+ Выход</button>
               </div>
               {draftOutputs.map((p, i) => (
                 <div className="row row--with-controls" key={`out-${i}`}>
