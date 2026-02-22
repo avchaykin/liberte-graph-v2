@@ -2,6 +2,8 @@
 
 Visual home schematic editor (React + React Flow).
 
+![Liberte Graph v2 screenshot](docs/screenshot-editor.jpg)
+
 ## Requirements
 
 - macOS/Linux
@@ -97,9 +99,22 @@ curl -I http://127.0.0.1:4180
 
 ## 5) Homebrew install + service
 
+> Формула публикуется через tap `avchaykin/liberte-graph-v2`.
+
+Install (one-liner):
+
 ```bash
-brew install --HEAD https://raw.githubusercontent.com/avchaykin/liberte-graph-v2/main/Formula/liberte-graph-v2.rb
+brew install --HEAD avchaykin/liberte-graph-v2/liberte-graph-v2
 brew services start liberte-graph-v2
+```
+
+Update to latest HEAD:
+
+```bash
+brew update
+brew upgrade --fetch-HEAD avchaykin/liberte-graph-v2/liberte-graph-v2 || \
+brew reinstall --HEAD avchaykin/liberte-graph-v2/liberte-graph-v2
+brew services restart liberte-graph-v2
 ```
 
 Manage:
@@ -107,6 +122,7 @@ Manage:
 ```bash
 brew services restart liberte-graph-v2
 brew services stop liberte-graph-v2
+brew services list | grep liberte-graph-v2
 ```
 
 ---
