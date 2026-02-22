@@ -655,18 +655,8 @@ function DiagramApp() {
                     <button className="menu__add" onClick={() => instantiate(t)}>
                       {t.name}
                     </button>
-                    <button className="menu__edit" onClick={() => openEdit(t)}>
-                      Изм.
-                    </button>
-                    <button
-                      className="menu__delete"
-                      onClick={() => {
-                        if (confirm(`Удалить тип блока "${t.name}" и все его экземпляры на схеме?`)) {
-                          deleteType(t.id);
-                        }
-                      }}
-                    >
-                      Удал.
+                    <button className="menu__edit" onClick={() => openEdit(t)} aria-label="Редактировать">
+                      ✏️
                     </button>
                   </div>
                 ))}
@@ -816,9 +806,26 @@ function DiagramApp() {
               ))}
             </div>
 
-            <div className="modal-actions">
-              <button className="btn-muted" onClick={() => setEditorOpen(false)}>Отмена</button>
-              <button className="btn-primary" onClick={saveType}>Сохранить</button>
+            <div className="modal-actions modal-actions--spread">
+              <div>
+                {editingId && (
+                  <button
+                    className="menu__delete"
+                    onClick={() => {
+                      if (confirm(`Удалить тип блока "${draftName}" и все его экземпляры на схеме?`)) {
+                        deleteType(editingId);
+                        setEditorOpen(false);
+                      }
+                    }}
+                  >
+                    Удалить тип
+                  </button>
+                )}
+              </div>
+              <div className="modal-actions">
+                <button className="btn-muted" onClick={() => setEditorOpen(false)}>Отмена</button>
+                <button className="btn-primary" onClick={saveType}>Сохранить</button>
+              </div>
             </div>
           </div>
         </div>
