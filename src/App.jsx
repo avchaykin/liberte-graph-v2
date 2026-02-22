@@ -142,6 +142,7 @@ function DiagramApp() {
   const [showLoad, setShowLoad] = useState(false);
 
   const [menu, setMenu] = useState({ visible: false, x: 0, y: 0, flowX: 0, flowY: 0 });
+  const [hoveredGroup, setHoveredGroup] = useState('');
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -229,6 +230,9 @@ function DiagramApp() {
   );
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) || null;
+  const selectedType = selectedNode
+    ? blockTypes.find((t) => t.id === selectedNode.data.typeId) || null
+    : null;
 
   const buildPayload = useCallback(
     (name = '') => ({
@@ -331,16 +335,21 @@ function DiagramApp() {
     setShowLoad(false);
   };
 
-  const closeMenu = () => setMenu((m) => ({ ...m, visible: false }));
+  const closeMenu = () => {
+    setMenu((m) => ({ ...m, visible: false }));
+    setHoveredGroup('');
+  };
 
   const openMenu = useCallback(
     (event) => {
       event.preventDefault();
       event.stopPropagation();
       const flow = rf.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      const groups = Object.keys(grouped);
+      setHoveredGroup(groups[0] || '');
       setMenu({ visible: true, x: event.clientX, y: event.clientY, flowX: flow.x, flowY: flow.y });
     },
-    [rf]
+    [rf, grouped]
   );
 
   const buildTypeId = (group, name) => `${slugify(group)}/${slugify(name)}`;
@@ -611,10 +620,24 @@ function DiagramApp() {
               <span>Добавить блок</span>
               <button onClick={openCreate}>+ Новый</button>
             </div>
-            {Object.entries(grouped).map(([group, items]) => (
-              <div key={group} className="menu__group">
-                <div className="menu__group-title">{group}</div>
-                {items.map((t) => (
+            <div className="menu__groups">
+              {Object.keys(grouped).map((group) => (
+                <button
+                  key={group}
+                  className={`menu__group-btn ${hoveredGroup === group ? 'menu__group-btn--active' : ''}`}
+                  onMouseEnter={() => setHoveredGroup(group)}
+                  onFocus={() => setHoveredGroup(group)}
+                  type="button"
+                >
+                  {group}
+                </button>
+              ))}
+            </div>
+
+            {hoveredGroup && grouped[hoveredGroup] && (
+              <div className="menu__submenu">
+                <div className="menu__group-title">{hoveredGroup}</div>
+                {grouped[hoveredGroup].map((t) => (
                   <div key={t.id} className="menu__item">
                     <button className="menu__add" onClick={() => instantiate(t)}>
                       {t.name}
@@ -625,7 +648,7 @@ function DiagramApp() {
                   </div>
                 ))}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
@@ -634,6 +657,14 @@ function DiagramApp() {
         <h3>Инспектор</h3>
         {selectedNode ? (
           <>
+            <label className="field">
+              <span>Группа</span>
+              <input value={selectedType?.group || ''} disabled />
+            </label>
+            <label className="field">
+              <span>Тип блока</span>
+              <input value={selectedType?.name || selectedNode.data.blockName || ''} disabled />
+            </label>
             <label className="field">
               <span>Имя экземпляра</span>
               <input value={selectedNode.data.instanceName} onChange={(e) => updateNodeName(e.target.value)} />
