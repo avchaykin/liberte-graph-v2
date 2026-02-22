@@ -131,6 +131,7 @@ function DiagramApp() {
   const wrapperRef = useRef(null);
   const autosaveTimerRef = useRef(null);
   const loadedRef = useRef(false);
+  const reconnectRef = useRef({ removedEdge: null, didConnect: false });
 
   const [blockTypes, setBlockTypes] = useState(initialBlockTypes);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -379,7 +380,8 @@ function DiagramApp() {
   };
 
   const onConnect = useCallback(
-    (params) =>
+    (params) => {
+      reconnectRef.current.didConnect = true;
       setEdges((prev) => {
         const filtered = prev.filter(
           (e) => !(e.target === params.target && e.targetHandle === params.targetHandle)
@@ -392,9 +394,30 @@ function DiagramApp() {
           },
           filtered
         );
-      }),
+      });
+    },
     [setEdges]
   );
+
+  const onConnectStart = useCallback(
+    (_, info) => {
+      reconnectRef.current = { removedEdge: null, didConnect: false };
+      if (info.handleType !== 'target') return;
+      setEdges((prev) => {
+        const existing = prev.find(
+          (e) => e.target === info.nodeId && e.targetHandle === info.handleId
+        );
+        reconnectRef.current.removedEdge = existing || null;
+        if (!existing) return prev;
+        return prev.filter((e) => e.id !== existing.id);
+      });
+    },
+    [setEdges]
+  );
+
+  const onConnectEnd = useCallback(() => {
+    reconnectRef.current = { removedEdge: null, didConnect: false };
+  }, []);
 
   const onReconnect = useCallback(
     (oldEdge, newConnection) => {
@@ -546,6 +569,8 @@ function DiagramApp() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onConnectStart={onConnectStart}
+          onConnectEnd={onConnectEnd}
           onReconnect={onReconnect}
           edgesReconnectable
           connectionLineType={ConnectionLineType.Bezier}
