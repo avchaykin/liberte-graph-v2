@@ -725,6 +725,50 @@ function DiagramApp() {
               <span>Имя экземпляра</span>
               <input value={selectedNode.data.instanceName} onChange={(e) => updateNodeName(e.target.value)} />
             </label>
+
+            {selectedType && (
+              <div className="inspector-desc">
+                <div className="inspector-desc__head">
+                  <strong>Описание блока</strong>
+                  <button className="menu__edit" type="button" onClick={() => openEdit(selectedType)}>
+                    ✏️ Редактировать тип
+                  </button>
+                </div>
+
+                <div className="inspector-desc__section">
+                  <span>Входы</span>
+                  {selectedType.inputs?.length ? (
+                    <ul>
+                      {selectedType.inputs.map((p) => (
+                        <li key={`desc-in-${p.id}`}>
+                          <strong>{p.name}</strong>
+                          <em>{p.type || 'без типа'}</em>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>Нет входов</p>
+                  )}
+                </div>
+
+                <div className="inspector-desc__section">
+                  <span>Выходы</span>
+                  {selectedType.outputs?.length ? (
+                    <ul>
+                      {selectedType.outputs.map((p) => (
+                        <li key={`desc-out-${p.id}`}>
+                          <strong>{p.name}</strong>
+                          <em>{p.type || 'без типа'}</em>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>Нет выходов</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {selectedNode.data.attributes.map((a) => (
               <label className="field" key={a.name}>
                 <span>{a.name}{a.hidden ? ' (скрытый)' : ''}</span>

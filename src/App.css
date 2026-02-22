@@ -79,6 +79,44 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 
 .inspector h3 { margin: 0 0 12px; }
 
+.inspector-desc {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.inspector-desc__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.inspector-desc__section span {
+  font-size: 12px;
+  color: #475569;
+}
+
+.inspector-desc__section ul {
+  margin: 6px 0 10px;
+  padding-left: 18px;
+}
+
+.inspector-desc__section li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.inspector-desc__section em {
+  color: #64748b;
+  font-style: normal;
+}
+
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
 .field span { font-size: 12px; color: #475569; }
 .field input {
