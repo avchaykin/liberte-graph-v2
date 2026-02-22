@@ -289,8 +289,13 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   grid-template-columns: 1fr;
 }
 
+.row--with-controls {
+  grid-template-columns: 1fr 1fr auto;
+  align-items: center;
+}
+
 .row--attr {
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
 }
 
@@ -300,6 +305,20 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   gap: 6px;
   font-size: 13px;
   color: #334155;
+}
+
+.row-controls {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.row-controls button {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
 }
 
 .row3 {

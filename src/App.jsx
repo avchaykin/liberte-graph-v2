@@ -58,13 +58,14 @@ function BlockNode({ data, selected }) {
   const inPorts = data.inputs ?? [];
   const outPorts = data.outputs ?? [];
   const connected = new Set(data.connectedHandles ?? []);
+  const title = data.instanceName?.trim() || data.blockName || data.instanceName || '';
 
   const yPos = (index) => `${HEADER_H + PORTS_PAD + index * PORT_ROW_H + PORT_ROW_H / 2}px`;
 
   return (
     <div className={`rf-block ${selected ? 'rf-block--selected' : ''}`}>
       <div className="rf-block__header" style={{ background: data.headerColor || '#ffffff' }}>
-        {data.instanceName}
+        {title}
       </div>
 
       {inPorts.map((p, idx) => (
@@ -305,13 +306,26 @@ function DiagramApp() {
 
   const buildTypeId = (group, name) => `${slugify(group)}/${slugify(name)}`;
 
+  const moveItem = (setter, index, direction) => {
+    setter((prev) => {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
+      const copy = [...prev];
+      [copy[index], copy[nextIndex]] = [copy[nextIndex], copy[index]];
+      return copy;
+    });
+  };
+
   const instantiate = (typeDef) => {
+    const nodeId = nanoid(10);
+    const defaultName = typeDef.name;
     const node = {
-      id: nanoid(10),
+      id: nodeId,
       type: 'block',
       position: { x: menu.flowX, y: menu.flowY },
       data: {
         typeId: typeDef.id,
+        blockName: typeDef.name,
         instanceName: typeDef.name,
         headerColor: typeDef.headerColor || PASTEL_COLORS[0],
         inputs: typeDef.inputs,
@@ -319,7 +333,12 @@ function DiagramApp() {
         attributes: typeDef.attributes.map((attr) => ({
           name: attr.name,
           hidden: Boolean(attr.hidden),
-          value: '',
+          value:
+            attr.name.toLowerCase() === 'id'
+              ? nodeId
+              : attr.name.toLowerCase() === 'name'
+                ? defaultName
+                : '',
         })),
       },
     };
@@ -349,7 +368,10 @@ function DiagramApp() {
     setDraftHeaderColor(PASTEL_COLORS[0]);
     setDraftInputs([]);
     setDraftOutputs([]);
-    setDraftAttrs([]);
+    setDraftAttrs([
+      { name: 'ID', hidden: true },
+      { name: 'Name', hidden: true },
+    ]);
     setEditorOpen(true);
     closeMenu();
   };
@@ -376,11 +398,11 @@ function DiagramApp() {
       name: draftName.trim(),
       headerColor: draftHeaderColor || PASTEL_COLORS[0],
       inputs: draftInputs
-        .filter((p) => p.name.trim() && p.type.trim())
-        .map((p, i) => ({ id: p.id || `in-${slugify(p.name)}-${i}`, name: p.name.trim(), type: p.type.trim() })),
+        .filter((p) => p.name.trim())
+        .map((p, i) => ({ id: p.id || `in-${slugify(p.name)}-${i}`, name: p.name.trim(), type: p.type?.trim() || '' })),
       outputs: draftOutputs
-        .filter((p) => p.name.trim() && p.type.trim())
-        .map((p, i) => ({ id: p.id || `out-${slugify(p.name)}-${i}`, name: p.name.trim(), type: p.type.trim() })),
+        .filter((p) => p.name.trim())
+        .map((p, i) => ({ id: p.id || `out-${slugify(p.name)}-${i}`, name: p.name.trim(), type: p.type?.trim() || '' })),
       attributes: draftAttrs
         .filter((a) => a.name.trim())
         .map((a) => ({ name: a.name.trim(), hidden: Boolean(a.hidden) })),
@@ -397,14 +419,22 @@ function DiagramApp() {
             data: {
               ...n.data,
               typeId: normalized.id,
+              blockName: normalized.name,
               headerColor: normalized.headerColor,
+              instanceName: n.data.instanceName?.trim() || normalized.name,
               inputs: normalized.inputs,
               outputs: normalized.outputs,
-              attributes: normalized.attributes.map((attr) => ({
-                name: attr.name,
-                hidden: Boolean(attr.hidden),
-                value: oldAttrMap[attr.name] ?? '',
-              })),
+              attributes: normalized.attributes.map((attr) => {
+                const lower = attr.name.toLowerCase();
+                const fallbackName = n.data.instanceName?.trim() || normalized.name;
+                return {
+                  name: attr.name,
+                  hidden: Boolean(attr.hidden),
+                  value:
+                    oldAttrMap[attr.name] ??
+                    (lower === 'id' ? n.id : lower === 'name' ? fallbackName : ''),
+                };
+              }),
             },
           };
         })
@@ -417,7 +447,22 @@ function DiagramApp() {
   };
 
   const updateNodeName = (name) => {
-    setNodes((prev) => prev.map((n) => (n.id === selectedNodeId ? { ...n, data: { ...n.data, instanceName: name } } : n)));
+    setNodes((prev) =>
+      prev.map((n) => {
+        if (n.id !== selectedNodeId) return n;
+        const effectiveName = name.trim() || n.data.blockName || '';
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            instanceName: effectiveName,
+            attributes: (n.data.attributes || []).map((a) =>
+              a.name.toLowerCase() === 'name' ? { ...a, value: effectiveName } : a
+            ),
+          },
+        };
+      })
+    );
   };
 
   const updateNodeAttr = (name, value) => {
@@ -555,17 +600,21 @@ function DiagramApp() {
                 <button onClick={() => setDraftInputs((prev) => [...prev, { id: '', name: '', type: '' }])}>+ Вход</button>
               </div>
               {draftInputs.map((p, i) => (
-                <div className="row" key={`in-${i}`}>
+                <div className="row row--with-controls" key={`in-${i}`}>
                   <input
                     placeholder="Название"
                     value={p.name}
                     onChange={(e) => setDraftInputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))}
                   />
                   <input
-                    placeholder="Тип"
+                    placeholder="Тип (необязательно)"
                     value={p.type}
                     onChange={(e) => setDraftInputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, type: e.target.value } : it)))}
                   />
+                  <div className="row-controls">
+                    <button type="button" onClick={() => moveItem(setDraftInputs, i, -1)}>↑</button>
+                    <button type="button" onClick={() => moveItem(setDraftInputs, i, 1)}>↓</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -576,17 +625,21 @@ function DiagramApp() {
                 <button onClick={() => setDraftOutputs((prev) => [...prev, { id: '', name: '', type: '' }])}>+ Выход</button>
               </div>
               {draftOutputs.map((p, i) => (
-                <div className="row" key={`out-${i}`}>
+                <div className="row row--with-controls" key={`out-${i}`}>
                   <input
                     placeholder="Название"
                     value={p.name}
                     onChange={(e) => setDraftOutputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))}
                   />
                   <input
-                    placeholder="Тип"
+                    placeholder="Тип (необязательно)"
                     value={p.type}
                     onChange={(e) => setDraftOutputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, type: e.target.value } : it)))}
                   />
+                  <div className="row-controls">
+                    <button type="button" onClick={() => moveItem(setDraftOutputs, i, -1)}>↑</button>
+                    <button type="button" onClick={() => moveItem(setDraftOutputs, i, 1)}>↓</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -615,6 +668,10 @@ function DiagramApp() {
                     />
                     скрытый
                   </label>
+                  <div className="row-controls">
+                    <button type="button" onClick={() => moveItem(setDraftAttrs, i, -1)}>↑</button>
+                    <button type="button" onClick={() => moveItem(setDraftAttrs, i, 1)}>↓</button>
+                  </div>
                 </div>
               ))}
             </div>
