@@ -633,20 +633,32 @@ function DiagramApp() {
     <div className="layout">
       <div className="canvas" ref={wrapperRef} onContextMenu={openMenu}>
         <div className="topbar">
-          <button className="topbar__btn" onClick={handleNewSchema}>Новая схема</button>
-          <button className={`topbar__btn ${savePulse ? 'topbar__btn--saving' : ''}`} onClick={handleSave}>Сохранить</button>
+          <button className="topbar__btn icon-btn" onClick={handleNewSchema} title="Новая схема" aria-label="Новая схема">
+            <span className="material-symbols-outlined">note_add</span>
+          </button>
+          <button className={`topbar__btn icon-btn ${savePulse ? 'topbar__btn--saving' : ''}`} onClick={handleSave} title="Сохранить" aria-label="Сохранить">
+            <span className="material-symbols-outlined">save</span>
+          </button>
           <button
-            className="topbar__btn"
+            className="topbar__btn icon-btn"
             onClick={() => {
               setDraftSchemaName(currentSchemaName || '');
               setShowSaveAs(true);
             }}
+            title="Сохранить как"
+            aria-label="Сохранить как"
           >
-            Сохранить как
+            <span className="material-symbols-outlined">save_as</span>
           </button>
-          <button className="topbar__btn" onClick={() => setShowLoad(true)}>Загрузить</button>
-          <button className="topbar__btn" onClick={handleExport}>Экспорт JSON</button>
-          <button className="topbar__btn" onClick={() => importInputRef.current?.click()}>Импорт JSON</button>
+          <button className="topbar__btn icon-btn" onClick={() => setShowLoad(true)} title="Загрузить" aria-label="Загрузить">
+            <span className="material-symbols-outlined">folder_open</span>
+          </button>
+          <button className="topbar__btn icon-btn" onClick={handleExport} title="Экспорт JSON" aria-label="Экспорт JSON">
+            <span className="material-symbols-outlined">upload_file</span>
+          </button>
+          <button className="topbar__btn icon-btn" onClick={() => importInputRef.current?.click()} title="Импорт JSON" aria-label="Импорт JSON">
+            <span className="material-symbols-outlined">download</span>
+          </button>
           <input
             ref={importInputRef}
             type="file"
