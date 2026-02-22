@@ -400,8 +400,10 @@ function DiagramApp() {
   );
 
   const onConnectStart = useCallback(
-    (_, info) => {
-      reconnectRef.current = { removedEdge: null, didConnect: false };
+    (event, info) => {
+      const startX = event?.clientX ?? event?.touches?.[0]?.clientX ?? 0;
+      const startY = event?.clientY ?? event?.touches?.[0]?.clientY ?? 0;
+      reconnectRef.current = { removedEdge: null, didConnect: false, startX, startY };
       if (info.handleType !== 'target') return;
       setEdges((prev) => {
         const existing = prev.find(
@@ -415,9 +417,24 @@ function DiagramApp() {
     [setEdges]
   );
 
-  const onConnectEnd = useCallback(() => {
-    reconnectRef.current = { removedEdge: null, didConnect: false };
-  }, []);
+  const onConnectEnd = useCallback(
+    (event) => {
+      const endX = event?.clientX ?? event?.changedTouches?.[0]?.clientX ?? 0;
+      const endY = event?.clientY ?? event?.changedTouches?.[0]?.clientY ?? 0;
+      const dx = endX - (reconnectRef.current.startX ?? endX);
+      const dy = endY - (reconnectRef.current.startY ?? endY);
+      const movedDistance = Math.hypot(dx, dy);
+      const shouldRestore =
+        reconnectRef.current.removedEdge && !reconnectRef.current.didConnect && movedDistance < 8;
+
+      if (shouldRestore) {
+        setEdges((prev) => [...prev, reconnectRef.current.removedEdge]);
+      }
+
+      reconnectRef.current = { removedEdge: null, didConnect: false, startX: 0, startY: 0 };
+    },
+    [setEdges]
+  );
 
   const onReconnect = useCallback(
     (oldEdge, newConnection) => {
