@@ -134,6 +134,7 @@ function DiagramApp() {
   const autosaveTimerRef = useRef(null);
   const loadedRef = useRef(false);
   const reconnectRef = useRef({ removedEdge: null, didConnect: false });
+  const importInputRef = useRef(null);
 
   const [blockTypes, setBlockTypes] = useState(initialBlockTypes);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -337,6 +338,44 @@ function DiagramApp() {
     if (!map[name]) return;
     applyPayload(map[name], { fromAutosave: false });
     setShowLoad(false);
+  };
+
+  const handleNewSchema = () => {
+    if (!confirm('Создать новую схему? Несохранённые изменения останутся только в автосейве.')) return;
+    setNodes([]);
+    setEdges([]);
+    setBlockTypes(initialBlockTypes);
+    setSelectedNodeId(null);
+    setCurrentSchemaName('');
+    localStorage.removeItem(STORAGE_LAST_NAME);
+  };
+
+  const handleExport = () => {
+    const payload = buildPayload(currentSchemaName || 'untitled');
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${payload.name || 'schema'}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const payload = JSON.parse(text);
+      if (!payload || !Array.isArray(payload.nodes) || !Array.isArray(payload.edges) || !Array.isArray(payload.blockTypes)) {
+        throw new Error('invalid');
+      }
+      applyPayload(payload, { fromAutosave: false });
+    } catch {
+      alert('Не удалось импортировать JSON-схему');
+    } finally {
+      event.target.value = '';
+    }
   };
 
   const closeMenu = () => {
@@ -574,6 +613,7 @@ function DiagramApp() {
     <div className="layout">
       <div className="canvas" ref={wrapperRef} onContextMenu={openMenu}>
         <div className="topbar">
+          <button onClick={handleNewSchema}>Новая схема</button>
           <button onClick={handleSave}>Сохранить</button>
           <button
             onClick={() => {
@@ -584,6 +624,15 @@ function DiagramApp() {
             Сохранить как
           </button>
           <button onClick={() => setShowLoad(true)}>Загрузить</button>
+          <button onClick={handleExport}>Экспорт JSON</button>
+          <button onClick={() => importInputRef.current?.click()}>Импорт JSON</button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept="application/json,.json"
+            onChange={handleImportFile}
+            style={{ display: 'none' }}
+          />
           <span className="topbar__name">{currentSchemaName ? `Схема: ${currentSchemaName}` : 'Без имени'}</span>
         </div>
 
