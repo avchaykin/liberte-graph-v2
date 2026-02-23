@@ -907,52 +907,57 @@ function DiagramApp() {
               </div>
             </div>
 
-            <div className="menu__content">
-              <div className="menu__groups">
-                {groupOrder.map((group) => (
-                  <button
-                    key={group}
-                    className={`menu__group-btn ${hoveredGroup === group ? 'menu__group-btn--active' : ''}`}
-                    onMouseEnter={() => setHoveredGroup(group)}
-                    onFocus={() => setHoveredGroup(group)}
-                    onDragOver={onMenuDragOver}
-                    onDrop={() => onMenuGroupDrop(group)}
-                    onDragStart={() => onMenuGroupDragStart(group)}
-                    onDragEnd={onMenuDragEnd}
+            <div className="menu__groups">
+              {groupOrder.map((group) => (
+                <button
+                  key={group}
+                  className={`menu__group-btn ${hoveredGroup === group ? 'menu__group-btn--active' : ''}`}
+                  onMouseEnter={() => setHoveredGroup(group)}
+                  onFocus={() => setHoveredGroup(group)}
+                  onDragOver={onMenuDragOver}
+                  onDrop={() => onMenuGroupDrop(group)}
+                  onDragStart={() => onMenuGroupDragStart(group)}
+                  onDragEnd={onMenuDragEnd}
+                  draggable
+                  type="button"
+                >
+                  <span className="material-symbols-outlined drag-handle" aria-hidden title="Перетащите для сортировки группы">drag_indicator</span>
+                  {group}
+                </button>
+              ))}
+            </div>
+
+            {hoveredGroup && grouped[hoveredGroup] && (
+              <div
+                className="menu__submenu"
+                style={{
+                  left: menu.x + 220 + 300 > window.innerWidth ? 'auto' : 'calc(100% + 8px)',
+                  right: menu.x + 220 + 300 > window.innerWidth ? 'calc(100% + 8px)' : 'auto',
+                  maxHeight: `min(70vh, ${Math.max(220, window.innerHeight - menu.y - 12)}px)`,
+                }}
+              >
+                <div className="menu__group-title">{hoveredGroup}</div>
+                {grouped[hoveredGroup].map((t) => (
+                  <div
+                    key={t.id}
+                    className="menu__item"
                     draggable
-                    type="button"
+                    onDragStart={() => onMenuTypeDragStart(hoveredGroup, t.id)}
+                    onDragOver={onMenuDragOver}
+                    onDrop={() => onMenuTypeDrop(hoveredGroup, t.id)}
+                    onDragEnd={onMenuDragEnd}
                   >
-                    <span className="material-symbols-outlined drag-handle" aria-hidden title="Перетащите для сортировки группы">drag_indicator</span>
-                    {group}
-                  </button>
+                    <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
+                    <button className="menu__add" onClick={() => instantiate(t)}>
+                      {t.name}
+                    </button>
+                    <button className="menu__edit icon-btn" onClick={() => openEdit(t)} title="Редактировать тип" aria-label="Редактировать тип">
+                      <span className="material-symbols-outlined">edit</span>
+                    </button>
+                  </div>
                 ))}
               </div>
-
-              {hoveredGroup && grouped[hoveredGroup] && (
-                <div className="menu__submenu">
-                  <div className="menu__group-title">{hoveredGroup}</div>
-                  {grouped[hoveredGroup].map((t) => (
-                    <div
-                      key={t.id}
-                      className="menu__item"
-                      draggable
-                      onDragStart={() => onMenuTypeDragStart(hoveredGroup, t.id)}
-                      onDragOver={onMenuDragOver}
-                      onDrop={() => onMenuTypeDrop(hoveredGroup, t.id)}
-                      onDragEnd={onMenuDragEnd}
-                    >
-                      <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
-                      <button className="menu__add" onClick={() => instantiate(t)}>
-                        {t.name}
-                      </button>
-                      <button className="menu__edit icon-btn" onClick={() => openEdit(t)} title="Редактировать тип" aria-label="Редактировать тип">
-                        <span className="material-symbols-outlined">edit</span>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            )}
           </div>
         )}
       </div>

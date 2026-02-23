@@ -285,7 +285,7 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 .menu {
   position: fixed;
   z-index: 40;
-  width: min(560px, calc(100vw - 16px));
+  width: 220px;
   max-height: 70vh;
   overflow: auto;
   background: #fff;
@@ -327,12 +327,6 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 
 .btn-muted { background: #cbd5e1; color: #0f172a; }
 
-.menu__content {
-  display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
-  gap: 8px;
-}
-
 .menu__groups {
   display: grid;
   gap: 6px;
@@ -359,12 +353,16 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 }
 
 .menu__submenu {
-  width: 100%;
-  max-height: 56vh;
+  position: absolute;
+  top: 0;
+  left: calc(100% + 8px);
+  width: 280px;
+  max-height: 70vh;
   overflow: auto;
   background: #fff;
   border: 1px solid #cbd5e1;
   border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(2, 6, 23, 0.2);
   padding: 10px;
 }
 
