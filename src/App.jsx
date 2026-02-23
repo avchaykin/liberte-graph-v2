@@ -60,6 +60,21 @@ const HEADER_H = 40;
 const PORTS_PAD = 10;
 const PORT_ROW_H = 24;
 
+const deepClone = (value) => {
+  if (typeof structuredClone === 'function') return structuredClone(value);
+  return JSON.parse(JSON.stringify(value));
+};
+
+const getTextColorForBackground = (hex = '#ffffff') => {
+  const clean = hex.replace('#', '');
+  const full = clean.length === 3 ? clean.split('').map((x) => x + x).join('') : clean;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.65 ? '#0f172a' : '#ffffff';
+};
+
 function BlockNode({ data, selected }) {
   const inPorts = data.inputs ?? [];
   const outPorts = data.outputs ?? [];
@@ -148,6 +163,10 @@ function DiagramApp() {
   const [savePulse, setSavePulse] = useState(false);
 
   const [menu, setMenu] = useState({ visible: false, x: 0, y: 0, flowX: 0, flowY: 0 });
+  const [instanceEditorOpen, setInstanceEditorOpen] = useState(false);
+  const [instanceDraftInputs, setInstanceDraftInputs] = useState([]);
+  const [instanceDraftOutputs, setInstanceDraftOutputs] = useState([]);
+  const [instanceDraftAttrs, setInstanceDraftAttrs] = useState([]);
   const [hoveredGroup, setHoveredGroup] = useState('');
 
   const [editorOpen, setEditorOpen] = useState(false);
@@ -240,7 +259,7 @@ function DiagramApp() {
   );
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) || null;
-  const selectedType = selectedNode
+  const selectedType = selectedNode && selectedNode.type === 'block'
     ? blockTypes.find((t) => t.id === selectedNode.data.typeId) || null
     : null;
 
@@ -401,8 +420,16 @@ function DiagramApp() {
       event.preventDefault();
       event.stopPropagation();
       const flow = rf.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      const maxX = Math.max(8, window.innerWidth - 240);
+      const maxY = Math.max(8, window.innerHeight - 320);
       setHoveredGroup(groupOrder[0] || '');
-      setMenu({ visible: true, x: event.clientX, y: event.clientY, flowX: flow.x, flowY: flow.y });
+      setMenu({
+        visible: true,
+        x: Math.min(event.clientX, maxX),
+        y: Math.min(event.clientY, maxY),
+        flowX: flow.x,
+        flowY: flow.y,
+      });
     },
     [rf, groupOrder]
   );
@@ -481,11 +508,13 @@ function DiagramApp() {
       position: { x: menu.flowX, y: menu.flowY },
       data: {
         typeId: typeDef.id,
+        blockGroup: typeDef.group,
         blockName: typeDef.name,
         instanceName: typeDef.name,
+        collapsed: false,
         headerColor: typeDef.headerColor || PASTEL_COLORS[0],
-        inputs: typeDef.inputs,
-        outputs: typeDef.outputs,
+        inputs: deepClone(typeDef.inputs),
+        outputs: deepClone(typeDef.outputs),
         attributes: typeDef.attributes.map((attr) => ({
           name: attr.name,
           hidden: Boolean(attr.hidden),
@@ -494,6 +523,24 @@ function DiagramApp() {
       },
     };
     setNodes((prev) => [...prev, node]);
+    closeMenu();
+  };
+
+  const instantiateFrame = () => {
+    const frameNode = {
+      id: nanoid(10),
+      type: 'frame',
+      position: { x: menu.flowX, y: menu.flowY },
+      zIndex: -1,
+      style: { width: 360, height: 220 },
+      data: {
+        instanceName: 'Frame',
+        headerColor: '#E2E8F0',
+        frameBorderStyle: 'solid',
+        fontSize: 16,
+      },
+    };
+    setNodes((prev) => [...prev, frameNode]);
     closeMenu();
   };
 
@@ -617,22 +664,14 @@ function DiagramApp() {
       setNodes((prev) =>
         prev.map((n) => {
           if (n.data.typeId !== editingId) return n;
-          const oldAttrMap = Object.fromEntries((n.data.attributes ?? []).map((a) => [a.name, a.value]));
           return {
             ...n,
             data: {
               ...n.data,
               typeId: normalized.id,
+              blockGroup: normalized.group,
               blockName: normalized.name,
               headerColor: normalized.headerColor,
-              instanceName: n.data.instanceName?.trim() || normalized.name,
-              inputs: normalized.inputs,
-              outputs: normalized.outputs,
-              attributes: normalized.attributes.map((attr) => ({
-                name: attr.name,
-                hidden: Boolean(attr.hidden),
-                value: oldAttrMap[attr.name] ?? '',
-              })),
             },
           };
         })
@@ -648,7 +687,7 @@ function DiagramApp() {
     setNodes((prev) =>
       prev.map((n) => {
         if (n.id !== selectedNodeId) return n;
-        const effectiveName = name.trim() || n.data.blockName || '';
+        const effectiveName = n.type === 'block' ? name.trim() || n.data.blockName || '' : name;
         return {
           ...n,
           data: {
@@ -676,6 +715,71 @@ function DiagramApp() {
     );
   };
 
+  const openInstanceEditor = () => {
+    if (!selectedNode || selectedNode.type !== 'block') return;
+    setInstanceDraftInputs(deepClone(selectedNode.data.inputs || []));
+    setInstanceDraftOutputs(deepClone(selectedNode.data.outputs || []));
+    setInstanceDraftAttrs(deepClone(selectedNode.data.attributes || []));
+    setInstanceEditorOpen(true);
+  };
+
+  const saveInstanceEditor = () => {
+    if (!selectedNodeId) return;
+    setNodes((prev) =>
+      prev.map((n) =>
+        n.id === selectedNodeId
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                inputs: instanceDraftInputs.filter((p) => p.name?.trim()).map((p) => ({ ...p, name: p.name.trim() })),
+                outputs: instanceDraftOutputs.filter((p) => p.name?.trim()).map((p) => ({ ...p, name: p.name.trim() })),
+                attributes: instanceDraftAttrs.filter((a) => a.name?.trim()).map((a) => ({ ...a, name: a.name.trim() })),
+              },
+            }
+          : n
+      )
+    );
+    setInstanceEditorOpen(false);
+  };
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      const meta = event.metaKey || event.ctrlKey;
+      if (!meta) return;
+      const targetTag = event.target?.tagName;
+      if (targetTag === 'INPUT' || targetTag === 'TEXTAREA') return;
+
+      if (event.key.toLowerCase() === 'c' && selectedNodeId) {
+        const selected = nodes.find((n) => n.id === selectedNodeId);
+        if (!selected) return;
+        window.__liberteClipboardNode = deepClone(selected);
+        event.preventDefault();
+      }
+
+      if (event.key.toLowerCase() === 'v' && window.__liberteClipboardNode) {
+        const cloned = deepClone(window.__liberteClipboardNode);
+        const newId = nanoid(10);
+        const nextNode = {
+          ...cloned,
+          id: newId,
+          selected: false,
+          dragging: false,
+          position: {
+            x: (cloned.position?.x || 0) + 40,
+            y: (cloned.position?.y || 0) + 40,
+          },
+        };
+        setNodes((prev) => [...prev, nextNode]);
+        setSelectedNodeId(newId);
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [nodes, selectedNodeId, setNodes]);
+
   return (
     <div className="layout">
       <div className="canvas" ref={wrapperRef} onContextMenu={openMenu}>
@@ -701,10 +805,10 @@ function DiagramApp() {
             <span className="material-symbols-outlined">folder_open</span>
           </button>
           <button className="topbar__btn icon-btn" onClick={handleExport} title="Экспорт JSON" aria-label="Экспорт JSON">
-            <span className="material-symbols-outlined">upload_file</span>
+            <span className="material-symbols-outlined">download</span>
           </button>
           <button className="topbar__btn icon-btn" onClick={() => importInputRef.current?.click()} title="Импорт JSON" aria-label="Импорт JSON">
-            <span className="material-symbols-outlined">download</span>
+            <span className="material-symbols-outlined">upload_file</span>
           </button>
           <input
             ref={importInputRef}
@@ -744,7 +848,10 @@ function DiagramApp() {
           <div className="menu" style={{ left: menu.x, top: menu.y }}>
             <div className="menu__head">
               <span>Добавить блок</span>
-              <button onClick={openCreate}>+ Новый</button>
+              <div className="menu__head-actions">
+                <button onClick={instantiateFrame}>+ Фрейм</button>
+                <button onClick={openCreate}>+ Новый</button>
+              </div>
             </div>
             <div className="menu__groups">
               {groupOrder.map((group) => (
@@ -767,7 +874,14 @@ function DiagramApp() {
             </div>
 
             {hoveredGroup && grouped[hoveredGroup] && (
-              <div className="menu__submenu">
+              <div
+                className="menu__submenu"
+                style={{
+                  left: menu.x + 220 + 300 > window.innerWidth ? 'auto' : 'calc(100% + 8px)',
+                  right: menu.x + 220 + 300 > window.innerWidth ? 'calc(100% + 8px)' : 'auto',
+                  maxHeight: `min(70vh, ${Math.max(220, window.innerHeight - menu.y - 12)}px)`,
+                }}
+              >
                 <div className="menu__group-title">{hoveredGroup}</div>
                 {grouped[hoveredGroup].map((t) => (
                   <div
@@ -798,68 +912,83 @@ function DiagramApp() {
         <h3>Инспектор</h3>
         {selectedNode ? (
           <>
-            <label className="field">
-              <span>Группа</span>
-              <input value={selectedType?.group || ''} disabled />
-            </label>
-            <label className="field">
-              <span>Тип блока</span>
-              <input value={selectedType?.name || selectedNode.data.blockName || ''} disabled />
-            </label>
-            <label className="field">
-              <span>Имя экземпляра</span>
-              <input value={selectedNode.data.instanceName} onChange={(e) => updateNodeName(e.target.value)} />
-            </label>
+            {selectedNode.type === 'block' ? (
+              <>
+                <label className="field">
+                  <span>Группа</span>
+                  <input value={selectedNode.data.blockGroup || selectedType?.group || ''} disabled />
+                </label>
+                <label className="field">
+                  <span>Тип блока</span>
+                  <input value={selectedNode.data.blockName || selectedType?.name || ''} disabled />
+                </label>
+                <label className="field">
+                  <span>Имя экземпляра</span>
+                  <input value={selectedNode.data.instanceName} onChange={(e) => updateNodeName(e.target.value)} />
+                </label>
 
-            {selectedType && (
-              <div className="inspector-desc">
-                <div className="inspector-desc__head">
-                  <strong>Описание блока</strong>
-                  <button className="menu__edit icon-btn" type="button" onClick={() => openEdit(selectedType)} aria-label="Редактировать тип">
-                    <span className="material-symbols-outlined">edit</span>
-                  </button>
+                <div className="inspector-actions">
+                  <button className="btn-primary" type="button" onClick={openInstanceEditor}>Редактировать экземпляр</button>
                 </div>
 
-                <div className="inspector-desc__section">
-                  <span>Входы</span>
-                  {selectedType.inputs?.length ? (
-                    <ul>
-                      {selectedType.inputs.map((p) => (
-                        <li key={`desc-in-${p.id}`}>
-                          <strong>{p.name}</strong>
-                          <em>{p.type || 'без типа'}</em>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>Нет входов</p>
-                  )}
-                </div>
+                {selectedType && (
+                  <div className="inspector-desc">
+                    <div className="inspector-desc__head">
+                      <strong>Описание типа</strong>
+                      <button className="menu__edit icon-btn" type="button" onClick={() => openEdit(selectedType)} aria-label="Редактировать тип">
+                        <span className="material-symbols-outlined">edit</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-                <div className="inspector-desc__section">
-                  <span>Выходы</span>
-                  {selectedType.outputs?.length ? (
-                    <ul>
-                      {selectedType.outputs.map((p) => (
-                        <li key={`desc-out-${p.id}`}>
-                          <strong>{p.name}</strong>
-                          <em>{p.type || 'без типа'}</em>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>Нет выходов</p>
-                  )}
-                </div>
-              </div>
+                {selectedNode.data.attributes.map((a) => (
+                  <label className="field" key={a.name}>
+                    <span>{a.name}{a.hidden ? ' (скрытый)' : ''}</span>
+                    <input value={a.value} onChange={(e) => updateNodeAttr(a.name, e.target.value)} />
+                  </label>
+                ))}
+              </>
+            ) : (
+              <>
+                <label className="field">
+                  <span>Заголовок фрейма</span>
+                  <input value={selectedNode.data.instanceName || ''} onChange={(e) => updateNodeName(e.target.value)} />
+                </label>
+                <label className="field">
+                  <span>Размер шрифта</span>
+                  <input
+                    type="number"
+                    min={10}
+                    max={48}
+                    value={selectedNode.data.fontSize || 16}
+                    onChange={(e) =>
+                      setNodes((prev) =>
+                        prev.map((n) =>
+                          n.id === selectedNodeId ? { ...n, data: { ...n.data, fontSize: Number(e.target.value) || 16 } } : n
+                        )
+                      )
+                    }
+                  />
+                </label>
+                <label className="field">
+                  <span>Обрамление</span>
+                  <select
+                    value={selectedNode.data.frameBorderStyle || 'solid'}
+                    onChange={(e) =>
+                      setNodes((prev) =>
+                        prev.map((n) =>
+                          n.id === selectedNodeId ? { ...n, data: { ...n.data, frameBorderStyle: e.target.value } } : n
+                        )
+                      )
+                    }
+                  >
+                    <option value="solid">Сплошное</option>
+                    <option value="dashed">Пунктир</option>
+                  </select>
+                </label>
+              </>
             )}
-
-            {selectedNode.data.attributes.map((a) => (
-              <label className="field" key={a.name}>
-                <span>{a.name}{a.hidden ? ' (скрытый)' : ''}</span>
-                <input value={a.value} onChange={(e) => updateNodeAttr(a.name, e.target.value)} />
-              </label>
-            ))}
           </>
         ) : (
           <p>Выберите блок на поле</p>
@@ -1028,6 +1157,76 @@ function DiagramApp() {
                 <button className="btn-muted" onClick={() => setEditorOpen(false)}>Отмена</button>
                 <button className="btn-primary" onClick={saveType}>Сохранить</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {instanceEditorOpen && (
+        <div className="modal-backdrop" onClick={() => setInstanceEditorOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Редактировать экземпляр</h3>
+
+            <div className="section">
+              <div className="section__head">
+                <span>Входы</span>
+                <button onClick={() => setInstanceDraftInputs((prev) => [...prev, { id: nanoid(6), name: '', type: '' }])}>+ Вход</button>
+              </div>
+              {instanceDraftInputs.map((p, i) => (
+                <div className="row row--with-controls" key={`i-in-${i}`}>
+                  <input placeholder="Название" value={p.name} onChange={(e) => setInstanceDraftInputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))} />
+                  <input placeholder="Тип" value={p.type || ''} onChange={(e) => setInstanceDraftInputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, type: e.target.value } : it)))} />
+                  <div className="row-controls">
+                    <button type="button" className="row-controls__delete" onClick={() => setInstanceDraftInputs((prev) => prev.filter((_, idx) => idx !== i))}>
+                      <span className="material-symbols-outlined">delete</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="section">
+              <div className="section__head">
+                <span>Выходы</span>
+                <button onClick={() => setInstanceDraftOutputs((prev) => [...prev, { id: nanoid(6), name: '', type: '' }])}>+ Выход</button>
+              </div>
+              {instanceDraftOutputs.map((p, i) => (
+                <div className="row row--with-controls" key={`i-out-${i}`}>
+                  <input placeholder="Название" value={p.name} onChange={(e) => setInstanceDraftOutputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))} />
+                  <input placeholder="Тип" value={p.type || ''} onChange={(e) => setInstanceDraftOutputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, type: e.target.value } : it)))} />
+                  <div className="row-controls">
+                    <button type="button" className="row-controls__delete" onClick={() => setInstanceDraftOutputs((prev) => prev.filter((_, idx) => idx !== i))}>
+                      <span className="material-symbols-outlined">delete</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="section">
+              <div className="section__head">
+                <span>Атрибуты</span>
+                <button onClick={() => setInstanceDraftAttrs((prev) => [...prev, { name: '', hidden: false, value: '' }])}>+ Атрибут</button>
+              </div>
+              {instanceDraftAttrs.map((a, i) => (
+                <div className="row row--attr" key={`i-attr-${i}`}>
+                  <input placeholder="Имя" value={a.name} onChange={(e) => setInstanceDraftAttrs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))} />
+                  <label className="checkbox-inline">
+                    <input type="checkbox" checked={Boolean(a.hidden)} onChange={(e) => setInstanceDraftAttrs((prev) => prev.map((it, idx) => (idx === i ? { ...it, hidden: e.target.checked } : it)))} />
+                    скрытый
+                  </label>
+                  <div className="row-controls">
+                    <button type="button" className="row-controls__delete" onClick={() => setInstanceDraftAttrs((prev) => prev.filter((_, idx) => idx !== i))}>
+                      <span className="material-symbols-outlined">delete</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn-muted" onClick={() => setInstanceEditorOpen(false)}>Отмена</button>
+              <button className="btn-primary" onClick={saveInstanceEditor}>Сохранить</button>
             </div>
           </div>
         </div>
