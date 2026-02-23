@@ -86,8 +86,22 @@ function BlockNode({ data, selected }) {
   return (
     <div className={`rf-block ${selected ? 'rf-block--selected' : ''}`}>
       <NodeResizer isVisible={selected} minWidth={220} minHeight={150} lineStyle={{ borderColor: '#93c5fd' }} />
-      <div className="rf-block__header" style={{ background: data.headerColor || '#ffffff' }}>
-        {title}
+      <div
+        className="rf-block__header"
+        style={{ background: data.headerColor || '#ffffff', color: getTextColorForBackground(data.headerColor || '#ffffff') }}
+      >
+        <span>{title}</span>
+        <button
+          type="button"
+          className="rf-block__collapse"
+          onClick={(e) => {
+            e.stopPropagation();
+            data.onToggleCollapse?.(data.nodeId);
+          }}
+          title={data.collapsed ? 'Развернуть атрибуты' : 'Свернуть атрибуты'}
+        >
+          {data.collapsed ? '+' : '−'}
+        </button>
       </div>
 
       {inPorts.map((p, idx) => (
@@ -129,15 +143,35 @@ function BlockNode({ data, selected }) {
         </div>
       </div>
 
-      <div className="rf-block__attrs">
-        {data.attributes
-          .filter((a) => !a.hidden)
-          .map((a) => (
-            <div className="rf-block__attr" key={a.name}>
-              <span>{a.name}</span>
-              <strong>{a.value}</strong>
-            </div>
-          ))}
+      {!data.collapsed && (
+        <div className="rf-block__attrs">
+          {data.attributes
+            .filter((a) => !a.hidden)
+            .map((a) => (
+              <div className="rf-block__attr" key={a.name}>
+                <span>{a.name}</span>
+                <strong>{a.value}</strong>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FrameNode({ data, selected }) {
+  return (
+    <div className={`rf-frame ${selected ? 'rf-frame--selected' : ''}`} style={{ borderStyle: data.frameBorderStyle || 'solid' }}>
+      <NodeResizer isVisible={selected} minWidth={240} minHeight={160} lineStyle={{ borderColor: '#93c5fd' }} />
+      <div
+        className="rf-frame__title"
+        style={{
+          background: data.headerColor || '#BFDBFE',
+          color: getTextColorForBackground(data.headerColor || '#BFDBFE'),
+          fontSize: `${data.fontSize || 16}px`,
+        }}
+      >
+        {data.instanceName || 'Frame'}
       </div>
     </div>
   );
@@ -180,7 +214,7 @@ function DiagramApp() {
   const [dragState, setDragState] = useState({ list: null, index: null });
   const [menuDrag, setMenuDrag] = useState({ kind: null, group: null, typeId: null });
 
-  const nodeTypes = useMemo(() => ({ block: BlockNode }), []);
+  const nodeTypes = useMemo(() => ({ block: BlockNode, frame: FrameNode }), []);
 
   const grouped = useMemo(() => {
     const g = {};
@@ -216,16 +250,31 @@ function DiagramApp() {
     return map;
   }, [edges]);
 
+  const toggleNodeCollapse = useCallback((nodeId) => {
+    setNodes((prev) =>
+      prev.map((n) =>
+        n.id === nodeId
+          ? {
+              ...n,
+              data: { ...n.data, collapsed: !n.data.collapsed },
+            }
+          : n
+      )
+    );
+  }, [setNodes]);
+
   const renderedNodes = useMemo(
     () =>
       nodes.map((n) => ({
         ...n,
         data: {
           ...n.data,
+          nodeId: n.id,
+          onToggleCollapse: toggleNodeCollapse,
           connectedHandles: [...(connectedByNode[n.id] ?? [])],
         },
       })),
-    [nodes, connectedByNode]
+    [nodes, connectedByNode, toggleNodeCollapse]
   );
 
   const getHandleType = useCallback(
