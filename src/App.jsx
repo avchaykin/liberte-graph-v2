@@ -159,9 +159,12 @@ function BlockNode({ data, selected }) {
   );
 }
 
-function FrameNode({ data, selected }) {
+function FrameNode({ data, selected, dragging }) {
   return (
-    <div className={`rf-frame ${selected ? 'rf-frame--selected' : ''}`} style={{ borderStyle: data.frameBorderStyle || 'solid' }}>
+    <div
+      className={`rf-frame ${selected ? 'rf-frame--selected' : ''} ${dragging ? 'rf-frame--dragging' : ''}`}
+      style={{ borderStyle: data.frameBorderStyle || 'solid' }}
+    >
       <NodeResizer isVisible={selected} minWidth={240} minHeight={160} lineStyle={{ borderColor: '#93c5fd' }} />
       <div
         className="rf-frame__title"
@@ -267,6 +270,7 @@ function DiagramApp() {
     () =>
       nodes.map((n) => ({
         ...n,
+        zIndex: n.type === 'frame' ? -1 : 10,
         data: {
           ...n.data,
           nodeId: n.id,
@@ -872,6 +876,7 @@ function DiagramApp() {
         <ReactFlow
           nodes={renderedNodes}
           edges={renderedEdges}
+          elevateNodesOnSelect={false}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}

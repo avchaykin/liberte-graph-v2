@@ -220,16 +220,13 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   overflow: hidden;
 }
 
-.react-flow__node-frame {
-  z-index: 1 !important;
-}
-
-.react-flow__node-block {
-  z-index: 10 !important;
-}
 
 .rf-frame--selected {
   box-shadow: 0 0 0 2px #93c5fd, 0 8px 18px rgba(15, 23, 42, 0.1);
+}
+
+.rf-frame--dragging {
+  opacity: 0.55;
 }
 
 .rf-frame__title {
