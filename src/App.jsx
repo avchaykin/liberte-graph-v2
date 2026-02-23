@@ -898,61 +898,61 @@ function DiagramApp() {
             <div className="menu__head">
               <span>Добавить блок</span>
               <div className="menu__head-actions">
-                <button onClick={instantiateFrame}>+ Фрейм</button>
-                <button onClick={openCreate}>+ Новый</button>
-              </div>
-            </div>
-            <div className="menu__groups">
-              {groupOrder.map((group) => (
-                <button
-                  key={group}
-                  className={`menu__group-btn ${hoveredGroup === group ? 'menu__group-btn--active' : ''}`}
-                  onMouseEnter={() => setHoveredGroup(group)}
-                  onFocus={() => setHoveredGroup(group)}
-                  onDragOver={onMenuDragOver}
-                  onDrop={() => onMenuGroupDrop(group)}
-                  onDragStart={() => onMenuGroupDragStart(group)}
-                  onDragEnd={onMenuDragEnd}
-                  draggable
-                  type="button"
-                >
-                  <span className="material-symbols-outlined drag-handle" aria-hidden>drag_indicator</span>
-                  {group}
+                <button className="icon-btn" onClick={instantiateFrame} title="Добавить фрейм" aria-label="Добавить фрейм">
+                  <span className="material-symbols-outlined">crop_square</span>
                 </button>
-              ))}
+                <button className="icon-btn" onClick={openCreate} title="Создать новый тип блока" aria-label="Создать новый тип блока">
+                  <span className="material-symbols-outlined">add_box</span>
+                </button>
+              </div>
             </div>
 
-            {hoveredGroup && grouped[hoveredGroup] && (
-              <div
-                className="menu__submenu"
-                style={{
-                  left: menu.x + 220 + 300 > window.innerWidth ? 'auto' : 'calc(100% + 8px)',
-                  right: menu.x + 220 + 300 > window.innerWidth ? 'calc(100% + 8px)' : 'auto',
-                  maxHeight: `min(70vh, ${Math.max(220, window.innerHeight - menu.y - 12)}px)`,
-                }}
-              >
-                <div className="menu__group-title">{hoveredGroup}</div>
-                {grouped[hoveredGroup].map((t) => (
-                  <div
-                    key={t.id}
-                    className="menu__item"
-                    draggable
-                    onDragStart={() => onMenuTypeDragStart(hoveredGroup, t.id)}
+            <div className="menu__content">
+              <div className="menu__groups">
+                {groupOrder.map((group) => (
+                  <button
+                    key={group}
+                    className={`menu__group-btn ${hoveredGroup === group ? 'menu__group-btn--active' : ''}`}
+                    onMouseEnter={() => setHoveredGroup(group)}
+                    onFocus={() => setHoveredGroup(group)}
                     onDragOver={onMenuDragOver}
-                    onDrop={() => onMenuTypeDrop(hoveredGroup, t.id)}
+                    onDrop={() => onMenuGroupDrop(group)}
+                    onDragStart={() => onMenuGroupDragStart(group)}
                     onDragEnd={onMenuDragEnd}
+                    draggable
+                    type="button"
                   >
-                    <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
-                    <button className="menu__add" onClick={() => instantiate(t)}>
-                      {t.name}
-                    </button>
-                    <button className="menu__edit icon-btn" onClick={() => openEdit(t)} aria-label="Редактировать">
-                      <span className="material-symbols-outlined">edit</span>
-                    </button>
-                  </div>
+                    <span className="material-symbols-outlined drag-handle" aria-hidden title="Перетащите для сортировки группы">drag_indicator</span>
+                    {group}
+                  </button>
                 ))}
               </div>
-            )}
+
+              {hoveredGroup && grouped[hoveredGroup] && (
+                <div className="menu__submenu">
+                  <div className="menu__group-title">{hoveredGroup}</div>
+                  {grouped[hoveredGroup].map((t) => (
+                    <div
+                      key={t.id}
+                      className="menu__item"
+                      draggable
+                      onDragStart={() => onMenuTypeDragStart(hoveredGroup, t.id)}
+                      onDragOver={onMenuDragOver}
+                      onDrop={() => onMenuTypeDrop(hoveredGroup, t.id)}
+                      onDragEnd={onMenuDragEnd}
+                    >
+                      <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
+                      <button className="menu__add" onClick={() => instantiate(t)}>
+                        {t.name}
+                      </button>
+                      <button className="menu__edit icon-btn" onClick={() => openEdit(t)} title="Редактировать тип" aria-label="Редактировать тип">
+                        <span className="material-symbols-outlined">edit</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -977,19 +977,58 @@ function DiagramApp() {
                 </label>
 
                 <div className="inspector-actions">
-                  <button className="btn-primary" type="button" onClick={openInstanceEditor}>Редактировать экземпляр</button>
+                  <button className="btn-primary icon-btn" type="button" onClick={openInstanceEditor} title="Редактировать экземпляр" aria-label="Редактировать экземпляр">
+                    <span className="material-symbols-outlined">tune</span>
+                  </button>
+                  <button
+                    className="menu__edit icon-btn"
+                    type="button"
+                    onClick={() => selectedType && openEdit(selectedType)}
+                    title="Редактировать тип"
+                    aria-label="Редактировать тип"
+                    disabled={!selectedType}
+                  >
+                    <span className="material-symbols-outlined">edit</span>
+                  </button>
                 </div>
 
-                {selectedType && (
-                  <div className="inspector-desc">
-                    <div className="inspector-desc__head">
-                      <strong>Описание типа</strong>
-                      <button className="menu__edit icon-btn" type="button" onClick={() => openEdit(selectedType)} aria-label="Редактировать тип">
-                        <span className="material-symbols-outlined">edit</span>
-                      </button>
-                    </div>
+                <div className="inspector-desc">
+                  <div className="inspector-desc__head">
+                    <strong>Описание типа</strong>
                   </div>
-                )}
+
+                  <div className="inspector-desc__section">
+                    <span>Входы экземпляра</span>
+                    {selectedNode.data.inputs?.length ? (
+                      <ul>
+                        {selectedNode.data.inputs.map((p) => (
+                          <li key={`inst-in-${p.id}`}>
+                            <strong>{p.name}</strong>
+                            <em>{p.type || 'без типа'}</em>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>Нет входов</p>
+                    )}
+                  </div>
+
+                  <div className="inspector-desc__section">
+                    <span>Выходы экземпляра</span>
+                    {selectedNode.data.outputs?.length ? (
+                      <ul>
+                        {selectedNode.data.outputs.map((p) => (
+                          <li key={`inst-out-${p.id}`}>
+                            <strong>{p.name}</strong>
+                            <em>{p.type || 'без типа'}</em>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>Нет выходов</p>
+                    )}
+                  </div>
+                </div>
 
                 {selectedNode.data.attributes.map((a) => (
                   <label className="field" key={a.name}>
@@ -1015,6 +1054,20 @@ function DiagramApp() {
                       setNodes((prev) =>
                         prev.map((n) =>
                           n.id === selectedNodeId ? { ...n, data: { ...n.data, fontSize: Number(e.target.value) || 16 } } : n
+                        )
+                      )
+                    }
+                  />
+                </label>
+                <label className="field">
+                  <span>Цвет заголовка</span>
+                  <input
+                    type="color"
+                    value={selectedNode.data.headerColor || '#E2E8F0'}
+                    onChange={(e) =>
+                      setNodes((prev) =>
+                        prev.map((n) =>
+                          n.id === selectedNodeId ? { ...n, data: { ...n.data, headerColor: e.target.value } } : n
                         )
                       )
                     }
@@ -1101,7 +1154,7 @@ function DiagramApp() {
                   />
                   <div className="row-controls">
                     <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
-                    <button type="button" className="row-controls__delete" onClick={() => setDraftInputs((prev) => prev.filter((_, idx) => idx !== i))}>
+                    <button type="button" className="row-controls__delete" title="Удалить вход" aria-label="Удалить вход" onClick={() => setDraftInputs((prev) => prev.filter((_, idx) => idx !== i))}>
                       <span className="material-symbols-outlined">delete</span>
                     </button>
                   </div>
@@ -1136,7 +1189,7 @@ function DiagramApp() {
                   />
                   <div className="row-controls">
                     <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
-                    <button type="button" className="row-controls__delete" onClick={() => setDraftOutputs((prev) => prev.filter((_, idx) => idx !== i))}>
+                    <button type="button" className="row-controls__delete" title="Удалить выход" aria-label="Удалить выход" onClick={() => setDraftOutputs((prev) => prev.filter((_, idx) => idx !== i))}>
                       <span className="material-symbols-outlined">delete</span>
                     </button>
                   </div>
@@ -1178,7 +1231,7 @@ function DiagramApp() {
                   </label>
                   <div className="row-controls">
                     <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
-                    <button type="button" className="row-controls__delete" onClick={() => setDraftAttrs((prev) => prev.filter((_, idx) => idx !== i))}>
+                    <button type="button" className="row-controls__delete" title="Удалить атрибут" aria-label="Удалить атрибут" onClick={() => setDraftAttrs((prev) => prev.filter((_, idx) => idx !== i))}>
                       <span className="material-symbols-outlined">delete</span>
                     </button>
                   </div>
@@ -1226,7 +1279,7 @@ function DiagramApp() {
                   <input placeholder="Название" value={p.name} onChange={(e) => setInstanceDraftInputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))} />
                   <input placeholder="Тип" value={p.type || ''} onChange={(e) => setInstanceDraftInputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, type: e.target.value } : it)))} />
                   <div className="row-controls">
-                    <button type="button" className="row-controls__delete" onClick={() => setInstanceDraftInputs((prev) => prev.filter((_, idx) => idx !== i))}>
+                    <button type="button" className="row-controls__delete" title="Удалить вход экземпляра" aria-label="Удалить вход экземпляра" onClick={() => setInstanceDraftInputs((prev) => prev.filter((_, idx) => idx !== i))}>
                       <span className="material-symbols-outlined">delete</span>
                     </button>
                   </div>
@@ -1244,7 +1297,7 @@ function DiagramApp() {
                   <input placeholder="Название" value={p.name} onChange={(e) => setInstanceDraftOutputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))} />
                   <input placeholder="Тип" value={p.type || ''} onChange={(e) => setInstanceDraftOutputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, type: e.target.value } : it)))} />
                   <div className="row-controls">
-                    <button type="button" className="row-controls__delete" onClick={() => setInstanceDraftOutputs((prev) => prev.filter((_, idx) => idx !== i))}>
+                    <button type="button" className="row-controls__delete" title="Удалить выход экземпляра" aria-label="Удалить выход экземпляра" onClick={() => setInstanceDraftOutputs((prev) => prev.filter((_, idx) => idx !== i))}>
                       <span className="material-symbols-outlined">delete</span>
                     </button>
                   </div>
@@ -1265,7 +1318,7 @@ function DiagramApp() {
                     скрытый
                   </label>
                   <div className="row-controls">
-                    <button type="button" className="row-controls__delete" onClick={() => setInstanceDraftAttrs((prev) => prev.filter((_, idx) => idx !== i))}>
+                    <button type="button" className="row-controls__delete" title="Удалить атрибут экземпляра" aria-label="Удалить атрибут экземпляра" onClick={() => setInstanceDraftAttrs((prev) => prev.filter((_, idx) => idx !== i))}>
                       <span className="material-symbols-outlined">delete</span>
                     </button>
                   </div>
