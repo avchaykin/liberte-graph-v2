@@ -267,6 +267,7 @@ function DiagramApp() {
     () =>
       nodes.map((n) => ({
         ...n,
+        zIndex: n.type === 'frame' ? -1 : 10,
         data: {
           ...n.data,
           nodeId: n.id,
