@@ -1115,21 +1115,10 @@ function DiagramApp() {
               <span>Имя блока</span>
               <input value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Circuit Breaker 1P+N" />
             </label>
-            <div className="field">
-              <span>Цвет заголовка (пастель)</span>
-              <div className="color-palette">
-                {PASTEL_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    className={`color-swatch ${draftHeaderColor === color ? 'color-swatch--active' : ''}`}
-                    style={{ background: color }}
-                    onClick={() => setDraftHeaderColor(color)}
-                    aria-label={`color ${color}`}
-                  />
-                ))}
-              </div>
-            </div>
+            <label className="field">
+              <span>Цвет заголовка</span>
+              <input type="color" value={draftHeaderColor} onChange={(e) => setDraftHeaderColor(e.target.value)} />
+            </label>
             <p className="hint">ID создаётся автоматически: {buildTypeId(draftGroup || 'group', draftName || 'name')}</p>
 
             <div className="section">

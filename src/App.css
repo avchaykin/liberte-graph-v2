@@ -215,9 +215,17 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   border-width: 1px;
   border-color: #cbd5e1;
   border-radius: 14px;
-  background: transparent;
+  background: #ffffff;
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
   overflow: hidden;
+}
+
+.react-flow__node-frame {
+  z-index: 1 !important;
+}
+
+.react-flow__node-block {
+  z-index: 10 !important;
 }
 
 .rf-frame--selected {
