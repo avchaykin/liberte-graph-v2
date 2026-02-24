@@ -215,6 +215,13 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   z-index: 9999;
 }
 
+.rf-block__tooltip-title {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: #0f172a;
+}
+
 .rf-block__tooltip-row {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
