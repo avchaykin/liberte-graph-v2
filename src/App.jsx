@@ -81,18 +81,23 @@ function BlockNode({ data, selected }) {
   const outPorts = data.outputs ?? [];
   const connected = new Set(data.connectedHandles ?? []);
   const title = data.instanceName?.trim() || data.blockName || data.instanceName || '';
-  const collapsed = Boolean(data.collapsed);
+  const minimized = Boolean(data.minimized ?? data.collapsed);
+  const attrsCollapsed = Boolean(data.attrsCollapsed);
 
   const maxPorts = Math.max(inPorts.length, outPorts.length, 1);
-  const collapsedBodyHeight = Math.max(58, PORTS_PAD * 2 + maxPorts * PORT_ROW_H);
-  const yPos = (index) => `${(collapsed ? 0 : HEADER_H) + PORTS_PAD + index * PORT_ROW_H + PORT_ROW_H / 2}px`;
+  const minimizedBodyHeight = Math.max(58, PORTS_PAD * 2 + maxPorts * PORT_ROW_H);
+  const yPos = (index) => `${(minimized ? 0 : HEADER_H) + PORTS_PAD + index * PORT_ROW_H + PORT_ROW_H / 2}px`;
 
   return (
-    <div className={`rf-block ${selected ? 'rf-block--selected' : ''} ${collapsed ? 'rf-block--collapsed' : ''}`} style={collapsed ? { minHeight: `${collapsedBodyHeight}px` } : undefined}>
-      <NodeResizer isVisible={selected} minWidth={collapsed ? 68 : 220} minHeight={collapsed ? collapsedBodyHeight : 150} lineStyle={{ borderColor: '#93c5fd' }} />
-      {!collapsed && (
+    <div className={`rf-block ${selected ? 'rf-block--selected' : ''} ${minimized ? 'rf-block--collapsed' : ''}`} style={minimized ? { minHeight: `${minimizedBodyHeight}px`, background: data.headerColor || '#BFDBFE' } : undefined}>
+      <NodeResizer isVisible={selected} minWidth={minimized ? 68 : 220} minHeight={minimized ? minimizedBodyHeight : 150} lineStyle={{ borderColor: '#93c5fd' }} />
+      {!minimized && (
         <div
           className="rf-block__header"
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            data.onToggleMinimize?.(data.nodeId);
+          }}
           style={{ background: data.headerColor || '#ffffff', color: getTextColorForBackground(data.headerColor || '#ffffff') }}
         >
           <span className="rf-block__title-wrap">
@@ -104,11 +109,11 @@ function BlockNode({ data, selected }) {
             className="rf-block__collapse"
             onClick={(e) => {
               e.stopPropagation();
-              data.onToggleCollapse?.(data.nodeId);
+              data.onToggleAttrs?.(data.nodeId);
             }}
-            title="Свернуть блок"
+            title={attrsCollapsed ? 'Показать атрибуты' : 'Скрыть атрибуты'}
           >
-            −
+            {attrsCollapsed ? '+' : '−'}
           </button>
         </div>
       )}
@@ -135,7 +140,7 @@ function BlockNode({ data, selected }) {
         />
       ))}
 
-      {!collapsed && <div className="rf-block__ports">
+      {!minimized && <div className="rf-block__ports">
         <div>
           {inPorts.map((p) => (
             <div key={`in-${p.id}`} className="rf-block__port-row">
@@ -152,7 +157,7 @@ function BlockNode({ data, selected }) {
         </div>
       </div>}
 
-      {!collapsed && (
+      {!minimized && !attrsCollapsed && (
         <div className="rf-block__attrs">
           {data.attributes
             .filter((a) => !a.hidden)
@@ -163,20 +168,6 @@ function BlockNode({ data, selected }) {
               </div>
             ))}
         </div>
-      )}
-
-      {collapsed && (
-        <button
-          type="button"
-          className="rf-block__collapsed-center"
-          style={{ background: data.headerColor || '#BFDBFE' }}
-          title="Двойной клик — развернуть"
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            data.onToggleCollapse?.(data.nodeId);
-          }}
-          onClick={(e) => e.stopPropagation()}
-        />
       )}
     </div>
   );
@@ -277,11 +268,12 @@ function DiagramApp() {
     return map;
   }, [edges]);
 
-  const toggleNodeCollapse = useCallback((nodeId) => {
+  const toggleNodeMinimize = useCallback((nodeId) => {
     setNodes((prev) =>
       prev.map((n) => {
         if (n.id !== nodeId) return n;
-        const willExpand = Boolean(n.data.collapsed);
+        const isMinimized = Boolean(n.data.minimized ?? n.data.collapsed);
+        const willExpand = isMinimized;
         return {
           ...n,
           style: willExpand
@@ -289,11 +281,22 @@ function DiagramApp() {
             : { ...n.style, width: 72 },
           data: {
             ...n.data,
-            collapsed: !n.data.collapsed,
+            minimized: !isMinimized,
+            collapsed: undefined,
             expandedSize: willExpand ? n.data.expandedSize : { width: n.style?.width, height: n.style?.height },
           },
         };
       })
+    );
+  }, [setNodes]);
+
+  const toggleNodeAttrs = useCallback((nodeId) => {
+    setNodes((prev) =>
+      prev.map((n) =>
+        n.id === nodeId
+          ? { ...n, data: { ...n.data, attrsCollapsed: !Boolean(n.data.attrsCollapsed) } }
+          : n
+      )
     );
   }, [setNodes]);
 
@@ -305,11 +308,12 @@ function DiagramApp() {
         data: {
           ...n.data,
           nodeId: n.id,
-          onToggleCollapse: toggleNodeCollapse,
+          onToggleMinimize: toggleNodeMinimize,
+          onToggleAttrs: toggleNodeAttrs,
           connectedHandles: [...(connectedByNode[n.id] ?? [])],
         },
       })),
-    [nodes, connectedByNode, toggleNodeCollapse]
+    [nodes, connectedByNode, toggleNodeMinimize, toggleNodeAttrs]
   );
 
   const getHandleType = useCallback(
@@ -623,7 +627,8 @@ function DiagramApp() {
         blockGroup: typeDef.group,
         blockName: typeDef.name,
         instanceName: typeDef.name,
-        collapsed: false,
+        minimized: false,
+        attrsCollapsed: false,
         icon: typeDef.icon || '',
         headerColor: typeDef.headerColor || PASTEL_COLORS[0],
         inputs: deepClone(typeDef.inputs),
