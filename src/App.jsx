@@ -83,9 +83,9 @@ function BlockNode({ data, selected }) {
   const title = data.instanceName?.trim() || data.blockName || data.instanceName || '';
   const minimized = Boolean(data.minimized ?? data.collapsed);
   const attrsCollapsed = Boolean(data.attrsCollapsed);
-  const tooltipLines = (data.attributes || [])
+  const tooltipAttrs = (data.attributes || [])
     .filter((a) => String(a.value || '').trim())
-    .map((a) => `${a.name}: ${a.value}`);
+    .map((a) => ({ name: a.name, value: a.value }));
 
   const maxPorts = Math.max(inPorts.length, outPorts.length, 1);
   const minimizedBodyHeight = Math.max(58, PORTS_PAD * 2 + maxPorts * PORT_ROW_H);
@@ -193,10 +193,12 @@ function BlockNode({ data, selected }) {
         </div>
       )}
 
-      {!!tooltipLines.length && (
+      {!!tooltipAttrs.length && (
         <div className="rf-block__tooltip" role="tooltip">
-          {tooltipLines.map((line) => (
-            <div key={line}>{line}</div>
+          {tooltipAttrs.map((attr) => (
+            <div key={`${attr.name}-${attr.value}`}>
+              <strong>{attr.name}:</strong> {attr.value}
+            </div>
           ))}
         </div>
       )}
@@ -237,6 +239,7 @@ function DiagramApp() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState(null);
 
   const [currentSchemaName, setCurrentSchemaName] = useState('');
   const [showSaveAs, setShowSaveAs] = useState(false);
@@ -335,7 +338,7 @@ function DiagramApp() {
     () =>
       nodes.map((n) => ({
         ...n,
-        zIndex: n.type === 'frame' ? -1 : 10,
+        zIndex: n.type === 'frame' ? -1 : n.id === hoveredNodeId ? 1000 : 10,
         data: {
           ...n.data,
           nodeId: n.id,
@@ -344,7 +347,7 @@ function DiagramApp() {
           connectedHandles: [...(connectedByNode[n.id] ?? [])],
         },
       })),
-    [nodes, connectedByNode, toggleNodeMinimize, toggleNodeAttrs]
+    [nodes, connectedByNode, toggleNodeMinimize, toggleNodeAttrs, hoveredNodeId]
   );
 
   const getHandleType = useCallback(
@@ -1002,12 +1005,15 @@ function DiagramApp() {
           onReconnect={onReconnect}
           connectionLineType={ConnectionLineType.Bezier}
           onNodeClick={(_, n) => setSelectedNodeId(n.id)}
+          onNodeMouseEnter={(_, n) => setHoveredNodeId(n.id)}
+          onNodeMouseLeave={() => setHoveredNodeId(null)}
           onNodeDoubleClick={(event, n) => {
             if (n.type !== 'block') return;
             openInstanceEditorForNode(n);
           }}
           onPaneClick={() => {
             setSelectedNodeId(null);
+            setHoveredNodeId(null);
             closeMenu();
           }}
           nodeTypes={nodeTypes}
