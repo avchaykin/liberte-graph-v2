@@ -236,8 +236,12 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 }
 
 .rf-block__icon-circle--large {
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
+}
+
+.rf-block__title-icon--large {
+  font-size: 30px;
 }
 
 .rf-block__collapse {

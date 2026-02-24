@@ -185,7 +185,7 @@ function BlockNode({ data, selected }) {
       {minimized && data.icon && (
         <div className="rf-block__minimized-icon-wrap">
           <span className="rf-block__icon-circle rf-block__icon-circle--large">
-            <span className="material-symbols-outlined rf-block__title-icon">{data.icon}</span>
+            <span className="material-symbols-outlined rf-block__title-icon rf-block__title-icon--large">{data.icon}</span>
           </span>
         </div>
       )}
@@ -373,18 +373,27 @@ function DiagramApp() {
 
   const connectedNamesByNodeHandle = useMemo(() => {
     const labels = {};
-    const names = new Map(nodes.map((n) => [n.id, n.data?.instanceName?.trim() || n.data?.blockName || n.id]));
+
+    const nodeLabelById = new Map(
+      nodes.map((n) => {
+        const name = n.data?.instanceName?.trim() || n.data?.blockName || n.id;
+        const idAttr = (n.data?.attributes || []).find((a) => String(a.name || '').toLowerCase() === 'id');
+        const idValue = String(idAttr?.value || '').trim();
+        const label = idValue ? `${name} (${idValue})` : name;
+        return [n.id, label];
+      })
+    );
 
     for (const edge of edges) {
       if (edge.target && edge.targetHandle && edge.source) {
         labels[edge.target] ??= {};
         labels[edge.target][`in:${edge.targetHandle}`] ??= [];
-        labels[edge.target][`in:${edge.targetHandle}`].push(names.get(edge.source) || edge.source);
+        labels[edge.target][`in:${edge.targetHandle}`].push(nodeLabelById.get(edge.source) || edge.source);
       }
       if (edge.source && edge.sourceHandle && edge.target) {
         labels[edge.source] ??= {};
         labels[edge.source][`out:${edge.sourceHandle}`] ??= [];
-        labels[edge.source][`out:${edge.sourceHandle}`].push(names.get(edge.target) || edge.target);
+        labels[edge.source][`out:${edge.sourceHandle}`].push(nodeLabelById.get(edge.target) || edge.target);
       }
     }
 
@@ -1119,7 +1128,7 @@ function DiagramApp() {
                               <strong>{p.name}</strong>
                               <em>{p.type || 'без типа'}</em>
                               {!!connectedNamesByNodeHandle[selectedNode.id]?.[`in:${p.id}`]?.length && (
-                                <small>Подключено: {connectedNamesByNodeHandle[selectedNode.id][`in:${p.id}`].join(', ')}</small>
+                                <small>{connectedNamesByNodeHandle[selectedNode.id][`in:${p.id}`].map((name) => `Имя блока ${name} →`).join(', ')}</small>
                               )}
                             </li>
                           ))}
@@ -1143,7 +1152,7 @@ function DiagramApp() {
                               <strong>{p.name}</strong>
                               <em>{p.type || 'без типа'}</em>
                               {!!connectedNamesByNodeHandle[selectedNode.id]?.[`out:${p.id}`]?.length && (
-                                <small>Подключено: {connectedNamesByNodeHandle[selectedNode.id][`out:${p.id}`].join(', ')}</small>
+                                <small>{connectedNamesByNodeHandle[selectedNode.id][`out:${p.id}`].map((name) => `→ ${name}`).join(', ')}</small>
                               )}
                             </li>
                           ))}
