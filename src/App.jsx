@@ -248,6 +248,12 @@ function DiagramApp() {
   const [showLoad, setShowLoad] = useState(false);
   const [savePulse, setSavePulse] = useState(false);
 
+  useEffect(() => {
+    document.title = currentSchemaName?.trim()
+      ? `${currentSchemaName.trim()} : home-schematic`
+      : 'home-schematic';
+  }, [currentSchemaName]);
+
   const [menu, setMenu] = useState({ visible: false, x: 0, y: 0, flowX: 0, flowY: 0 });
   const [instanceEditorOpen, setInstanceEditorOpen] = useState(false);
   const [instanceDraftInputs, setInstanceDraftInputs] = useState([]);
