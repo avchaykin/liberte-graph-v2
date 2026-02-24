@@ -83,6 +83,10 @@ function BlockNode({ data, selected }) {
   const title = data.instanceName?.trim() || data.blockName || data.instanceName || '';
   const minimized = Boolean(data.minimized ?? data.collapsed);
   const attrsCollapsed = Boolean(data.attrsCollapsed);
+  const tooltipText = (data.attributes || [])
+    .filter((a) => String(a.value || '').trim())
+    .map((a) => `${a.name}: ${a.value}`)
+    .join('\n');
 
   const maxPorts = Math.max(inPorts.length, outPorts.length, 1);
   const minimizedBodyHeight = Math.max(58, PORTS_PAD * 2 + maxPorts * PORT_ROW_H);
@@ -92,6 +96,7 @@ function BlockNode({ data, selected }) {
     <div
       className={`rf-block ${selected ? 'rf-block--selected' : ''} ${minimized ? 'rf-block--collapsed' : ''}`}
       style={minimized ? { minHeight: `${minimizedBodyHeight}px`, background: data.headerColor || '#BFDBFE' } : undefined}
+      title={tooltipText || undefined}
       onDoubleClick={(e) => {
         if (!minimized) return;
         e.stopPropagation();
@@ -868,12 +873,18 @@ function DiagramApp() {
     );
   };
 
+  const openInstanceEditorForNode = useCallback((node) => {
+    if (!node || node.type !== 'block') return;
+    setSelectedNodeId(node.id);
+    setInstanceDraftInputs(deepClone(node.data.inputs || []));
+    setInstanceDraftOutputs(deepClone(node.data.outputs || []));
+    setInstanceDraftAttrs(deepClone(node.data.attributes || []));
+    setInstanceEditorOpen(true);
+  }, []);
+
   const openInstanceEditor = () => {
     if (!selectedNode || selectedNode.type !== 'block') return;
-    setInstanceDraftInputs(deepClone(selectedNode.data.inputs || []));
-    setInstanceDraftOutputs(deepClone(selectedNode.data.outputs || []));
-    setInstanceDraftAttrs(deepClone(selectedNode.data.attributes || []));
-    setInstanceEditorOpen(true);
+    openInstanceEditorForNode(selectedNode);
   };
 
   const saveInstanceEditor = () => {
@@ -985,6 +996,10 @@ function DiagramApp() {
           onReconnect={onReconnect}
           connectionLineType={ConnectionLineType.Bezier}
           onNodeClick={(_, n) => setSelectedNodeId(n.id)}
+          onNodeDoubleClick={(event, n) => {
+            if (n.type !== 'block') return;
+            openInstanceEditorForNode(n);
+          }}
           onPaneClick={() => {
             setSelectedNodeId(null);
             closeMenu();
