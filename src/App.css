@@ -198,21 +198,43 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   left: 50%;
   bottom: calc(100% + 8px);
   transform: translateX(-50%) translateY(4px);
-  min-width: 160px;
-  max-width: 300px;
+  min-width: 200px;
+  max-width: 340px;
   background: #ffffff;
   color: #0f172a;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 12px;
-  line-height: 1.35;
+  padding: 9px 12px;
+  font-size: 13px;
+  line-height: 1.4;
   box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);
   opacity: 0;
   pointer-events: none;
   transition: opacity 140ms ease, transform 140ms ease;
   transition-delay: 180ms;
   z-index: 9999;
+}
+
+.rf-block__tooltip-row {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+
+.rf-block__tooltip-row + .rf-block__tooltip-row {
+  margin-top: 4px;
+}
+
+.rf-block__tooltip-key {
+  font-weight: 700;
+  color: #334155;
+}
+
+.rf-block__tooltip-value {
+  text-align: right;
+  color: #0f172a;
+  word-break: break-word;
 }
 
 .rf-block:hover .rf-block__tooltip {

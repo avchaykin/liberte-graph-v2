@@ -196,8 +196,9 @@ function BlockNode({ data, selected }) {
       {!!tooltipAttrs.length && (
         <div className="rf-block__tooltip" role="tooltip">
           {tooltipAttrs.map((attr) => (
-            <div key={`${attr.name}-${attr.value}`}>
-              <strong>{attr.name}:</strong> {attr.value}
+            <div className="rf-block__tooltip-row" key={`${attr.name}-${attr.value}`}>
+              <strong className="rf-block__tooltip-key">{attr.name}</strong>
+              <span className="rf-block__tooltip-value">{attr.value}</span>
             </div>
           ))}
         </div>
