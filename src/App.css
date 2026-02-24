@@ -193,6 +193,33 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   overflow: visible;
 }
 
+.rf-block__tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%) translateY(4px);
+  min-width: 160px;
+  max-width: 280px;
+  background: rgba(15, 23, 42, 0.95);
+  color: #f8fafc;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.35;
+  box-shadow: 0 10px 25px rgba(2, 6, 23, 0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease, transform 140ms ease;
+  transition-delay: 180ms;
+  z-index: 40;
+}
+
+.rf-block:hover .rf-block__tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 .rf-block--collapsed {
   min-width: 68px;
   border-color: transparent;

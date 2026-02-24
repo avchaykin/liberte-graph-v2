@@ -83,10 +83,9 @@ function BlockNode({ data, selected }) {
   const title = data.instanceName?.trim() || data.blockName || data.instanceName || '';
   const minimized = Boolean(data.minimized ?? data.collapsed);
   const attrsCollapsed = Boolean(data.attrsCollapsed);
-  const tooltipText = (data.attributes || [])
+  const tooltipLines = (data.attributes || [])
     .filter((a) => String(a.value || '').trim())
-    .map((a) => `${a.name}: ${a.value}`)
-    .join('\n');
+    .map((a) => `${a.name}: ${a.value}`);
 
   const maxPorts = Math.max(inPorts.length, outPorts.length, 1);
   const minimizedBodyHeight = Math.max(58, PORTS_PAD * 2 + maxPorts * PORT_ROW_H);
@@ -96,7 +95,6 @@ function BlockNode({ data, selected }) {
     <div
       className={`rf-block ${selected ? 'rf-block--selected' : ''} ${minimized ? 'rf-block--collapsed' : ''}`}
       style={minimized ? { minHeight: `${minimizedBodyHeight}px`, background: data.headerColor || '#BFDBFE' } : undefined}
-      title={tooltipText || undefined}
       onDoubleClick={(e) => {
         if (!minimized) return;
         e.stopPropagation();
@@ -192,6 +190,14 @@ function BlockNode({ data, selected }) {
           <span className="rf-block__icon-circle rf-block__icon-circle--large">
             <span className="material-symbols-outlined rf-block__title-icon rf-block__title-icon--large">{data.icon}</span>
           </span>
+        </div>
+      )}
+
+      {!!tooltipLines.length && (
+        <div className="rf-block__tooltip" role="tooltip">
+          {tooltipLines.map((line) => (
+            <div key={line}>{line}</div>
+          ))}
         </div>
       )}
     </div>
@@ -1143,7 +1149,7 @@ function DiagramApp() {
                               <strong>{p.name}</strong>
                               <em>{p.type || 'без типа'}</em>
                               {!!connectedNamesByNodeHandle[selectedNode.id]?.[`in:${p.id}`]?.length && (
-                                <small>{connectedNamesByNodeHandle[selectedNode.id][`in:${p.id}`].map((name) => `Имя блока ${name} →`).join(', ')}</small>
+                                <small>{connectedNamesByNodeHandle[selectedNode.id][`in:${p.id}`].map((name) => `${name} →`).join(', ')}</small>
                               )}
                             </li>
                           ))}
