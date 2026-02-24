@@ -198,8 +198,8 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   left: 50%;
   bottom: calc(100% + 8px);
   transform: translateX(-50%) translateY(4px);
-  min-width: 200px;
-  max-width: 340px;
+  min-width: 260px;
+  max-width: 680px;
   background: #ffffff;
   color: #0f172a;
   border: 1px solid #cbd5e1;
