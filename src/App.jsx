@@ -39,6 +39,7 @@ const initialBlockTypes = [
     id: 'power/circuit-breaker-1p-n',
     group: 'power',
     name: 'Circuit Breaker 1P+N',
+    icon: 'bolt',
     headerColor: '#BFDBFE',
     inputs: [
       { id: 'in-n', name: 'N', type: 'electrical' },
@@ -80,29 +81,37 @@ function BlockNode({ data, selected }) {
   const outPorts = data.outputs ?? [];
   const connected = new Set(data.connectedHandles ?? []);
   const title = data.instanceName?.trim() || data.blockName || data.instanceName || '';
+  const collapsed = Boolean(data.collapsed);
 
-  const yPos = (index) => `${HEADER_H + PORTS_PAD + index * PORT_ROW_H + PORT_ROW_H / 2}px`;
+  const maxPorts = Math.max(inPorts.length, outPorts.length, 1);
+  const collapsedBodyHeight = Math.max(58, PORTS_PAD * 2 + maxPorts * PORT_ROW_H);
+  const yPos = (index) => `${(collapsed ? 0 : HEADER_H) + PORTS_PAD + index * PORT_ROW_H + PORT_ROW_H / 2}px`;
 
   return (
-    <div className={`rf-block ${selected ? 'rf-block--selected' : ''}`}>
-      <NodeResizer isVisible={selected} minWidth={220} minHeight={150} lineStyle={{ borderColor: '#93c5fd' }} />
-      <div
-        className="rf-block__header"
-        style={{ background: data.headerColor || '#ffffff', color: getTextColorForBackground(data.headerColor || '#ffffff') }}
-      >
-        <span>{title}</span>
-        <button
-          type="button"
-          className="rf-block__collapse"
-          onClick={(e) => {
-            e.stopPropagation();
-            data.onToggleCollapse?.(data.nodeId);
-          }}
-          title={data.collapsed ? 'Развернуть атрибуты' : 'Свернуть атрибуты'}
+    <div className={`rf-block ${selected ? 'rf-block--selected' : ''} ${collapsed ? 'rf-block--collapsed' : ''}`} style={collapsed ? { minHeight: `${collapsedBodyHeight}px` } : undefined}>
+      <NodeResizer isVisible={selected} minWidth={collapsed ? 68 : 220} minHeight={collapsed ? collapsedBodyHeight : 150} lineStyle={{ borderColor: '#93c5fd' }} />
+      {!collapsed && (
+        <div
+          className="rf-block__header"
+          style={{ background: data.headerColor || '#ffffff', color: getTextColorForBackground(data.headerColor || '#ffffff') }}
         >
-          {data.collapsed ? '+' : '−'}
-        </button>
-      </div>
+          <span className="rf-block__title-wrap">
+            {data.icon && <span className="material-symbols-outlined rf-block__title-icon">{data.icon}</span>}
+            <span>{title}</span>
+          </span>
+          <button
+            type="button"
+            className="rf-block__collapse"
+            onClick={(e) => {
+              e.stopPropagation();
+              data.onToggleCollapse?.(data.nodeId);
+            }}
+            title="Свернуть блок"
+          >
+            −
+          </button>
+        </div>
+      )}
 
       {inPorts.map((p, idx) => (
         <Handle
@@ -126,7 +135,7 @@ function BlockNode({ data, selected }) {
         />
       ))}
 
-      <div className="rf-block__ports">
+      {!collapsed && <div className="rf-block__ports">
         <div>
           {inPorts.map((p) => (
             <div key={`in-${p.id}`} className="rf-block__port-row">
@@ -141,9 +150,9 @@ function BlockNode({ data, selected }) {
             </div>
           ))}
         </div>
-      </div>
+      </div>}
 
-      {!data.collapsed && (
+      {!collapsed && (
         <div className="rf-block__attrs">
           {data.attributes
             .filter((a) => !a.hidden)
@@ -154,6 +163,20 @@ function BlockNode({ data, selected }) {
               </div>
             ))}
         </div>
+      )}
+
+      {collapsed && (
+        <button
+          type="button"
+          className="rf-block__collapsed-center"
+          style={{ background: data.headerColor || '#BFDBFE' }}
+          title="Двойной клик — развернуть"
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            data.onToggleCollapse?.(data.nodeId);
+          }}
+          onClick={(e) => e.stopPropagation()}
+        />
       )}
     </div>
   );
@@ -211,6 +234,7 @@ function DiagramApp() {
   const [draftGroup, setDraftGroup] = useState('power');
   const [draftName, setDraftName] = useState('');
   const [draftHeaderColor, setDraftHeaderColor] = useState(PASTEL_COLORS[0]);
+  const [draftIcon, setDraftIcon] = useState('');
   const [draftInputs, setDraftInputs] = useState([]);
   const [draftOutputs, setDraftOutputs] = useState([]);
   const [draftAttrs, setDraftAttrs] = useState([]);
@@ -255,14 +279,21 @@ function DiagramApp() {
 
   const toggleNodeCollapse = useCallback((nodeId) => {
     setNodes((prev) =>
-      prev.map((n) =>
-        n.id === nodeId
-          ? {
-              ...n,
-              data: { ...n.data, collapsed: !n.data.collapsed },
-            }
-          : n
-      )
+      prev.map((n) => {
+        if (n.id !== nodeId) return n;
+        const willExpand = Boolean(n.data.collapsed);
+        return {
+          ...n,
+          style: willExpand
+            ? { ...n.style, width: n.data.expandedSize?.width, height: n.data.expandedSize?.height }
+            : { ...n.style, width: 72 },
+          data: {
+            ...n.data,
+            collapsed: !n.data.collapsed,
+            expandedSize: willExpand ? n.data.expandedSize : { width: n.style?.width, height: n.style?.height },
+          },
+        };
+      })
     );
   }, [setNodes]);
 
@@ -315,6 +346,26 @@ function DiagramApp() {
   const selectedType = selectedNode && selectedNode.type === 'block'
     ? blockTypes.find((t) => t.id === selectedNode.data.typeId) || null
     : null;
+
+  const connectedNamesByNodeHandle = useMemo(() => {
+    const labels = {};
+    const names = new Map(nodes.map((n) => [n.id, n.data?.instanceName?.trim() || n.data?.blockName || n.id]));
+
+    for (const edge of edges) {
+      if (edge.target && edge.targetHandle && edge.source) {
+        labels[edge.target] ??= {};
+        labels[edge.target][`in:${edge.targetHandle}`] ??= [];
+        labels[edge.target][`in:${edge.targetHandle}`].push(names.get(edge.source) || edge.source);
+      }
+      if (edge.source && edge.sourceHandle && edge.target) {
+        labels[edge.source] ??= {};
+        labels[edge.source][`out:${edge.sourceHandle}`] ??= [];
+        labels[edge.source][`out:${edge.sourceHandle}`].push(names.get(edge.target) || edge.target);
+      }
+    }
+
+    return labels;
+  }, [nodes, edges]);
 
   const buildPayload = useCallback(
     (name = '') => ({
@@ -503,7 +554,15 @@ function DiagramApp() {
   const onDragOver = (event) => event.preventDefault();
   const onDropRow = (list, index) => {
     if (dragState.list !== list || dragState.index == null) return;
-    const setter = list === 'inputs' ? setDraftInputs : list === 'outputs' ? setDraftOutputs : setDraftAttrs;
+    const setter = {
+      inputs: setDraftInputs,
+      outputs: setDraftOutputs,
+      attrs: setDraftAttrs,
+      'inst-inputs': setInstanceDraftInputs,
+      'inst-outputs': setInstanceDraftOutputs,
+      'inst-attrs': setInstanceDraftAttrs,
+    }[list];
+    if (!setter) return;
     reorderList(setter, dragState.index, index);
     setDragState({ list: null, index: null });
   };
@@ -565,6 +624,7 @@ function DiagramApp() {
         blockName: typeDef.name,
         instanceName: typeDef.name,
         collapsed: false,
+        icon: typeDef.icon || '',
         headerColor: typeDef.headerColor || PASTEL_COLORS[0],
         inputs: deepClone(typeDef.inputs),
         outputs: deepClone(typeDef.outputs),
@@ -661,6 +721,7 @@ function DiagramApp() {
     setDraftGroup('power');
     setDraftName('');
     setDraftHeaderColor(PASTEL_COLORS[0]);
+    setDraftIcon('');
     setDraftInputs([]);
     setDraftOutputs([]);
     setDraftAttrs([
@@ -676,6 +737,7 @@ function DiagramApp() {
     setDraftGroup(t.group);
     setDraftName(t.name);
     setDraftHeaderColor(t.headerColor || PASTEL_COLORS[0]);
+    setDraftIcon(t.icon || '');
     setDraftInputs(t.inputs.map((x) => ({ ...x })));
     setDraftOutputs(t.outputs.map((x) => ({ ...x })));
     setDraftAttrs(t.attributes.map((attr) => ({ name: attr.name, hidden: Boolean(attr.hidden) })));
@@ -700,6 +762,7 @@ function DiagramApp() {
       id,
       group: draftGroup.trim(),
       name: draftName.trim(),
+      icon: draftIcon.trim(),
       headerColor: draftHeaderColor || PASTEL_COLORS[0],
       inputs: draftInputs
         .filter((p) => p.name.trim())
@@ -713,10 +776,12 @@ function DiagramApp() {
     };
 
     if (editingId) {
+      const previousType = blockTypes.find((t) => t.id === editingId) || null;
       setBlockTypes((prev) => prev.map((t) => (t.id === editingId ? normalized : t)));
       setNodes((prev) =>
         prev.map((n) => {
           if (n.data.typeId !== editingId) return n;
+          const shouldUpdateIcon = !n.data.icon || n.data.icon === (previousType?.icon || '');
           return {
             ...n,
             data: {
@@ -725,6 +790,7 @@ function DiagramApp() {
               blockGroup: normalized.group,
               blockName: normalized.name,
               headerColor: normalized.headerColor,
+              icon: shouldUpdateIcon ? normalized.icon : n.data.icon,
             },
           };
         })
@@ -982,6 +1048,18 @@ function DiagramApp() {
                   <input value={selectedNode.data.blockName || selectedType?.name || ''} disabled />
                 </label>
                 <label className="field">
+                  <span>Иконка (Material Symbols)</span>
+                  <input
+                    value={selectedNode.data.icon || ''}
+                    onChange={(e) =>
+                      setNodes((prev) =>
+                        prev.map((n) => (n.id === selectedNodeId ? { ...n, data: { ...n.data, icon: e.target.value } } : n))
+                      )
+                    }
+                    placeholder="bolt"
+                  />
+                </label>
+                <label className="field">
                   <span>Имя экземпляра</span>
                   <input value={selectedNode.data.instanceName} onChange={(e) => updateNodeName(e.target.value)} />
                 </label>
@@ -1002,41 +1080,53 @@ function DiagramApp() {
                   </button>
                 </div>
 
-                <div className="inspector-desc">
-                  <div className="inspector-desc__head">
-                    <strong>Описание типа</strong>
+                <div className="inspector-desc-grid">
+                  <div className="inspector-desc">
+                    <div className="inspector-desc__head">
+                      <strong>Входы</strong>
+                    </div>
+
+                    <div className="inspector-desc__section">
+                      {selectedNode.data.inputs?.length ? (
+                        <ul>
+                          {selectedNode.data.inputs.map((p) => (
+                            <li key={`inst-in-${p.id}`}>
+                              <strong>{p.name}</strong>
+                              <em>{p.type || 'без типа'}</em>
+                              {!!connectedNamesByNodeHandle[selectedNode.id]?.[`in:${p.id}`]?.length && (
+                                <small>Подключено: {connectedNamesByNodeHandle[selectedNode.id][`in:${p.id}`].join(', ')}</small>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>Нет входов</p>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="inspector-desc__section">
-                    <span>Входы экземпляра</span>
-                    {selectedNode.data.inputs?.length ? (
-                      <ul>
-                        {selectedNode.data.inputs.map((p) => (
-                          <li key={`inst-in-${p.id}`}>
-                            <strong>{p.name}</strong>
-                            <em>{p.type || 'без типа'}</em>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p>Нет входов</p>
-                    )}
-                  </div>
+                  <div className="inspector-desc">
+                    <div className="inspector-desc__head">
+                      <strong>Выходы</strong>
+                    </div>
 
-                  <div className="inspector-desc__section">
-                    <span>Выходы экземпляра</span>
-                    {selectedNode.data.outputs?.length ? (
-                      <ul>
-                        {selectedNode.data.outputs.map((p) => (
-                          <li key={`inst-out-${p.id}`}>
-                            <strong>{p.name}</strong>
-                            <em>{p.type || 'без типа'}</em>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p>Нет выходов</p>
-                    )}
+                    <div className="inspector-desc__section">
+                      {selectedNode.data.outputs?.length ? (
+                        <ul>
+                          {selectedNode.data.outputs.map((p) => (
+                            <li key={`inst-out-${p.id}`}>
+                              <strong>{p.name}</strong>
+                              <em>{p.type || 'без типа'}</em>
+                              {!!connectedNamesByNodeHandle[selectedNode.id]?.[`out:${p.id}`]?.length && (
+                                <small>Подключено: {connectedNamesByNodeHandle[selectedNode.id][`out:${p.id}`].join(', ')}</small>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>Нет выходов</p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1119,6 +1209,10 @@ function DiagramApp() {
             <label className="field">
               <span>Имя блока</span>
               <input value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Circuit Breaker 1P+N" />
+            </label>
+            <label className="field">
+              <span>Иконка (Material Symbols)</span>
+              <input value={draftIcon} onChange={(e) => setDraftIcon(e.target.value)} placeholder="bolt" />
             </label>
             <label className="field">
               <span>Цвет заголовка</span>
@@ -1274,10 +1368,11 @@ function DiagramApp() {
                 <button onClick={() => setInstanceDraftInputs((prev) => [...prev, { id: nanoid(6), name: '', type: '' }])}>+ Вход</button>
               </div>
               {instanceDraftInputs.map((p, i) => (
-                <div className="row row--with-controls" key={`i-in-${i}`}>
+                <div className="row row--with-controls" key={`i-in-${i}`} draggable onDragStart={() => onDragStart('inst-inputs', i)} onDragOver={onDragOver} onDrop={() => onDropRow('inst-inputs', i)} onDragEnd={onDragEnd}>
                   <input placeholder="Название" value={p.name} onChange={(e) => setInstanceDraftInputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))} />
                   <input placeholder="Тип" value={p.type || ''} onChange={(e) => setInstanceDraftInputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, type: e.target.value } : it)))} />
                   <div className="row-controls">
+                    <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
                     <button type="button" className="row-controls__delete" title="Удалить вход экземпляра" aria-label="Удалить вход экземпляра" onClick={() => setInstanceDraftInputs((prev) => prev.filter((_, idx) => idx !== i))}>
                       <span className="material-symbols-outlined">delete</span>
                     </button>
@@ -1292,10 +1387,11 @@ function DiagramApp() {
                 <button onClick={() => setInstanceDraftOutputs((prev) => [...prev, { id: nanoid(6), name: '', type: '' }])}>+ Выход</button>
               </div>
               {instanceDraftOutputs.map((p, i) => (
-                <div className="row row--with-controls" key={`i-out-${i}`}>
+                <div className="row row--with-controls" key={`i-out-${i}`} draggable onDragStart={() => onDragStart('inst-outputs', i)} onDragOver={onDragOver} onDrop={() => onDropRow('inst-outputs', i)} onDragEnd={onDragEnd}>
                   <input placeholder="Название" value={p.name} onChange={(e) => setInstanceDraftOutputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))} />
                   <input placeholder="Тип" value={p.type || ''} onChange={(e) => setInstanceDraftOutputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, type: e.target.value } : it)))} />
                   <div className="row-controls">
+                    <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
                     <button type="button" className="row-controls__delete" title="Удалить выход экземпляра" aria-label="Удалить выход экземпляра" onClick={() => setInstanceDraftOutputs((prev) => prev.filter((_, idx) => idx !== i))}>
                       <span className="material-symbols-outlined">delete</span>
                     </button>
@@ -1310,13 +1406,14 @@ function DiagramApp() {
                 <button onClick={() => setInstanceDraftAttrs((prev) => [...prev, { name: '', hidden: false, value: '' }])}>+ Атрибут</button>
               </div>
               {instanceDraftAttrs.map((a, i) => (
-                <div className="row row--attr" key={`i-attr-${i}`}>
+                <div className="row row--attr" key={`i-attr-${i}`} draggable onDragStart={() => onDragStart('inst-attrs', i)} onDragOver={onDragOver} onDrop={() => onDropRow('inst-attrs', i)} onDragEnd={onDragEnd}>
                   <input placeholder="Имя" value={a.name} onChange={(e) => setInstanceDraftAttrs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))} />
                   <label className="checkbox-inline">
                     <input type="checkbox" checked={Boolean(a.hidden)} onChange={(e) => setInstanceDraftAttrs((prev) => prev.map((it, idx) => (idx === i ? { ...it, hidden: e.target.checked } : it)))} />
                     скрытый
                   </label>
                   <div className="row-controls">
+                    <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
                     <button type="button" className="row-controls__delete" title="Удалить атрибут экземпляра" aria-label="Удалить атрибут экземпляра" onClick={() => setInstanceDraftAttrs((prev) => prev.filter((_, idx) => idx !== i))}>
                       <span className="material-symbols-outlined">delete</span>
                     </button>
