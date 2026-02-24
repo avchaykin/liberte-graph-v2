@@ -89,7 +89,15 @@ function BlockNode({ data, selected }) {
   const yPos = (index) => `${(minimized ? 0 : HEADER_H) + PORTS_PAD + index * PORT_ROW_H + PORT_ROW_H / 2}px`;
 
   return (
-    <div className={`rf-block ${selected ? 'rf-block--selected' : ''} ${minimized ? 'rf-block--collapsed' : ''}`} style={minimized ? { minHeight: `${minimizedBodyHeight}px`, background: data.headerColor || '#BFDBFE' } : undefined}>
+    <div
+      className={`rf-block ${selected ? 'rf-block--selected' : ''} ${minimized ? 'rf-block--collapsed' : ''}`}
+      style={minimized ? { minHeight: `${minimizedBodyHeight}px`, background: data.headerColor || '#BFDBFE' } : undefined}
+      onDoubleClick={(e) => {
+        if (!minimized) return;
+        e.stopPropagation();
+        data.onToggleMinimize?.(data.nodeId);
+      }}
+    >
       <NodeResizer isVisible={selected} minWidth={minimized ? 68 : 220} minHeight={minimized ? minimizedBodyHeight : 150} lineStyle={{ borderColor: '#93c5fd' }} />
       {!minimized && (
         <div
@@ -101,7 +109,11 @@ function BlockNode({ data, selected }) {
           style={{ background: data.headerColor || '#ffffff', color: getTextColorForBackground(data.headerColor || '#ffffff') }}
         >
           <span className="rf-block__title-wrap">
-            {data.icon && <span className="material-symbols-outlined rf-block__title-icon">{data.icon}</span>}
+            {data.icon && (
+              <span className="rf-block__icon-circle">
+                <span className="material-symbols-outlined rf-block__title-icon">{data.icon}</span>
+              </span>
+            )}
             <span>{title}</span>
           </span>
           <button
@@ -167,6 +179,14 @@ function BlockNode({ data, selected }) {
                 <strong>{a.value}</strong>
               </div>
             ))}
+        </div>
+      )}
+
+      {minimized && data.icon && (
+        <div className="rf-block__minimized-icon-wrap">
+          <span className="rf-block__icon-circle rf-block__icon-circle--large">
+            <span className="material-symbols-outlined rf-block__title-icon">{data.icon}</span>
+          </span>
         </div>
       )}
     </div>
