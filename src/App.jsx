@@ -14,6 +14,8 @@ import ReactFlow, {
   useReactFlow,
 } from 'reactflow';
 import { nanoid } from 'nanoid';
+import { icon as faIcon } from '@fortawesome/fontawesome-svg-core';
+import * as faSolid from '@fortawesome/free-solid-svg-icons';
 import 'reactflow/dist/style.css';
 import './App.css';
 
@@ -76,16 +78,39 @@ const getTextColorForBackground = (hex = '#ffffff') => {
   return luminance > 0.65 ? '#0f172a' : '#ffffff';
 };
 
+const renderBlockIcon = (iconName, className = 'rf-block__title-icon') => {
+  const clean = String(iconName || '').trim();
+  if (!clean) return null;
+
+  if (clean.startsWith('fa-')) {
+    const pascal = clean
+      .slice(3)
+      .split('-')
+      .filter(Boolean)
+      .map((part) => part[0].toUpperCase() + part.slice(1))
+      .join('');
+    const definition = faSolid[`fa${pascal}`];
+    if (!definition) return <span className={`material-symbols-outlined ${className}`}>category</span>;
+    return <span className={className} dangerouslySetInnerHTML={{ __html: faIcon(definition).html.join('') }} />;
+  }
+
+  return <span className={`material-symbols-outlined ${className}`}>{clean}</span>;
+};
+
 function BlockNode({ data, selected }) {
   const inPorts = data.inputs ?? [];
   const outPorts = data.outputs ?? [];
   const connected = new Set(data.connectedHandles ?? []);
-  const title = data.instanceName?.trim() || data.blockName || data.instanceName || '';
+  const rawInstanceName = data.instanceName ?? '';
+  const title = rawInstanceName.length > 0 ? rawInstanceName : (data.blockName || '');
   const minimized = Boolean(data.minimized ?? data.collapsed);
   const attrsCollapsed = Boolean(data.attrsCollapsed);
   const tooltipAttrs = (data.attributes || [])
     .filter((a) => String(a.value || '').trim())
     .map((a) => ({ name: a.name, value: a.value }));
+  const badgeAttr = (data.attributes || []).find((a) => String(a.name || '').toLowerCase() === 'badge');
+  const badgeValue = String(badgeAttr?.value || '').trim();
+  const badgeLong = badgeValue.length > 2;
 
   const maxPorts = Math.max(inPorts.length, outPorts.length, 1);
   const minimizedBodyHeight = Math.max(58, PORTS_PAD * 2 + maxPorts * PORT_ROW_H);
@@ -114,7 +139,7 @@ function BlockNode({ data, selected }) {
           <span className="rf-block__title-wrap">
             {data.icon && (
               <span className="rf-block__icon-circle">
-                <span className="material-symbols-outlined rf-block__title-icon">{data.icon}</span>
+                {renderBlockIcon(data.icon, 'rf-block__title-icon')}
               </span>
             )}
             <span>{title}</span>
@@ -186,11 +211,15 @@ function BlockNode({ data, selected }) {
       )}
 
       {minimized && data.icon && (
-        <div className="rf-block__minimized-icon-wrap">
+        <div className={`rf-block__minimized-icon-wrap ${badgeLong ? 'rf-block__minimized-icon-wrap--raised' : ''}`}>
           <span className="rf-block__icon-circle rf-block__icon-circle--large">
-            <span className="material-symbols-outlined rf-block__title-icon rf-block__title-icon--large">{data.icon}</span>
+            {renderBlockIcon(data.icon, `rf-block__title-icon rf-block__title-icon--large ${badgeLong ? 'rf-block__title-icon--badge-adjust' : ''}`)}
           </span>
         </div>
+      )}
+
+      {minimized && badgeValue && (
+        <div className={`rf-block__badge ${badgeLong ? 'rf-block__badge--long' : ''}`}>{badgeValue}</div>
       )}
 
       {(minimized || tooltipAttrs.length > 0) && (
@@ -235,6 +264,7 @@ function DiagramApp() {
   const autosaveTimerRef = useRef(null);
   const loadedRef = useRef(false);
   const reconnectRef = useRef({ removedEdge: null, didConnect: false });
+  const frameDragRef = useRef({ frameId: null, nodeStart: {}, frameStart: null });
   const importInputRef = useRef(null);
 
   const [blockTypes, setBlockTypes] = useState(initialBlockTypes);
@@ -273,6 +303,8 @@ function DiagramApp() {
   const [draftAttrs, setDraftAttrs] = useState([]);
   const [dragState, setDragState] = useState({ list: null, index: null });
   const [menuDrag, setMenuDrag] = useState({ kind: null, group: null, typeId: null });
+
+  const historyRef = useRef({ undo: [], redo: [], recording: true });
 
   const nodeTypes = useMemo(() => ({ block: BlockNode, frame: FrameNode }), []);
 
@@ -358,15 +390,16 @@ function DiagramApp() {
     [nodes, connectedByNode, toggleNodeMinimize, toggleNodeAttrs, hoveredNodeId]
   );
 
-  const getHandleType = useCallback(
+  const getHandleTypes = useCallback(
     (nodeId, handleId) => {
       const node = nodes.find((n) => n.id === nodeId);
-      if (!node) return '';
+      if (!node) return [];
       const inPort = (node.data.inputs || []).find((p) => p.id === handleId);
-      if (inPort) return (inPort.type || '').trim();
-      const outPort = (node.data.outputs || []).find((p) => p.id === handleId);
-      if (outPort) return (outPort.type || '').trim();
-      return '';
+      const raw = inPort ? inPort.type : (node.data.outputs || []).find((p) => p.id === handleId)?.type;
+      return String(raw || '')
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean);
     },
     [nodes]
   );
@@ -374,9 +407,12 @@ function DiagramApp() {
   const renderedEdges = useMemo(
     () =>
       edges.map((e) => {
-        const sType = getHandleType(e.source, e.sourceHandle);
-        const tType = getHandleType(e.target, e.targetHandle);
-        const mismatch = sType && tType && sType !== tType;
+        const sTypes = getHandleTypes(e.source, e.sourceHandle);
+        const tTypes = getHandleTypes(e.target, e.targetHandle);
+        const mismatch =
+          sTypes.length > 0
+          && tTypes.length > 0
+          && !sTypes.some((s) => tTypes.includes(s));
         return {
           ...e,
           type: e.type === 'bezier' ? 'default' : e.type || 'default',
@@ -385,13 +421,14 @@ function DiagramApp() {
             : { ...(e.style || {}), stroke: '#cbd5e1', strokeWidth: 2 },
         };
       }),
-    [edges, getHandleType]
+    [edges, getHandleTypes]
   );
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) || null;
   const selectedType = selectedNode && selectedNode.type === 'block'
     ? blockTypes.find((t) => t.id === selectedNode.data.typeId) || null
     : null;
+  const selectedBlockNodes = nodes.filter((n) => n.type === 'block' && n.selected);
 
   const connectedNamesByNodeHandle = useMemo(() => {
     const labels = {};
@@ -435,6 +472,14 @@ function DiagramApp() {
     [blockTypes, nodes, edges, rf]
   );
 
+  const snapshotState = useCallback(() => ({
+    blockTypes: deepClone(blockTypes),
+    nodes: deepClone(nodes),
+    edges: deepClone(edges),
+    currentSchemaName,
+    viewport: rf.getViewport(),
+  }), [blockTypes, nodes, edges, currentSchemaName, rf]);
+
   const applyPayload = useCallback(
     (payload, { fromAutosave = false } = {}) => {
       setBlockTypes(payload.blockTypes || initialBlockTypes);
@@ -456,6 +501,40 @@ function DiagramApp() {
     },
     [setNodes, setEdges, rf]
   );
+
+  const applySnapshot = useCallback((snap) => {
+    if (!snap) return;
+    historyRef.current.recording = false;
+    setBlockTypes(snap.blockTypes || initialBlockTypes);
+    setNodes(snap.nodes || []);
+    setEdges(snap.edges || []);
+    setCurrentSchemaName(snap.currentSchemaName || '');
+    requestAnimationFrame(() => {
+      if (snap.viewport) rf.setViewport(snap.viewport, { duration: 0 });
+      historyRef.current.recording = true;
+    });
+  }, [rf, setNodes, setEdges]);
+
+  const handleUndo = useCallback(() => {
+    const prev = historyRef.current.undo.pop();
+    if (!prev) return;
+    historyRef.current.redo.push(snapshotState());
+    applySnapshot(prev);
+  }, [applySnapshot, snapshotState]);
+
+  const handleRedo = useCallback(() => {
+    const next = historyRef.current.redo.pop();
+    if (!next) return;
+    historyRef.current.undo.push(snapshotState());
+    applySnapshot(next);
+  }, [applySnapshot, snapshotState]);
+
+  useEffect(() => {
+    if (!loadedRef.current || !historyRef.current.recording) return;
+    historyRef.current.undo.push(snapshotState());
+    if (historyRef.current.undo.length > 100) historyRef.current.undo.shift();
+    historyRef.current.redo = [];
+  }, [blockTypes, nodes, edges, currentSchemaName, snapshotState]);
 
   useEffect(() => {
     if (loadedRef.current) return;
@@ -862,7 +941,7 @@ function DiagramApp() {
     setNodes((prev) =>
       prev.map((n) => {
         if (n.id !== selectedNodeId) return n;
-        const effectiveName = n.type === 'block' ? name.trim() || n.data.blockName || '' : name;
+        const effectiveName = n.type === 'block' ? (name === '' ? (n.data.blockName || '') : name) : name;
         return {
           ...n,
           data: {
@@ -924,6 +1003,118 @@ function DiagramApp() {
     setInstanceEditorOpen(false);
   };
 
+  const alignSelected = (mode) => {
+    const selectedIds = new Set(selectedBlockNodes.map((n) => n.id));
+    if (selectedIds.size < 2) return;
+
+    setNodes((prev) => {
+      const selected = prev
+        .filter((n) => selectedIds.has(n.id))
+        .map((n) => {
+          const width = n.width || n.style?.width || 260;
+          const height = n.height || n.style?.height || 180;
+          return {
+            ...n,
+            _w: width,
+            _h: height,
+            _left: n.position.x,
+            _right: n.position.x + width,
+            _top: n.position.y,
+            _bottom: n.position.y + height,
+            _centerX: n.position.x + width / 2,
+            _centerY: n.position.y + height / 2,
+          };
+        });
+
+      const minLeft = Math.min(...selected.map((n) => n._left));
+      const maxRight = Math.max(...selected.map((n) => n._right));
+      const minTop = Math.min(...selected.map((n) => n._top));
+      const maxBottom = Math.max(...selected.map((n) => n._bottom));
+      const midX = selected.reduce((sum, n) => sum + n._centerX, 0) / selected.length;
+      const midY = selected.reduce((sum, n) => sum + n._centerY, 0) / selected.length;
+
+      const xById = {};
+      const yById = {};
+
+      if (mode === 'distributeX') {
+        const sorted = [...selected].sort((a, b) => a._left - b._left);
+        const totalWidth = sorted.reduce((sum, n) => sum + n._w, 0);
+        const gap = sorted.length > 1 ? (maxRight - minLeft - totalWidth) / (sorted.length - 1) : 0;
+        let cursor = minLeft;
+        for (const item of sorted) {
+          xById[item.id] = cursor;
+          cursor += item._w + gap;
+        }
+      }
+
+      if (mode === 'distributeY') {
+        const sorted = [...selected].sort((a, b) => a._top - b._top);
+        const totalHeight = sorted.reduce((sum, n) => sum + n._h, 0);
+        const gap = sorted.length > 1 ? (maxBottom - minTop - totalHeight) / (sorted.length - 1) : 0;
+        let cursor = minTop;
+        for (const item of sorted) {
+          yById[item.id] = cursor;
+          cursor += item._h + gap;
+        }
+      }
+
+      return prev.map((n) => {
+        if (!selectedIds.has(n.id)) return n;
+        const width = n.width || n.style?.width || 260;
+        const height = n.height || n.style?.height || 180;
+
+        if (mode === 'left') return { ...n, position: { ...n.position, x: minLeft } };
+        if (mode === 'right') return { ...n, position: { ...n.position, x: maxRight - width } };
+        if (mode === 'hcenter') return { ...n, position: { ...n.position, x: midX - width / 2 } };
+        if (mode === 'top') return { ...n, position: { ...n.position, y: minTop } };
+        if (mode === 'bottom') return { ...n, position: { ...n.position, y: maxBottom - height } };
+        if (mode === 'vcenter') return { ...n, position: { ...n.position, y: midY - height / 2 } };
+        if (mode === 'distributeX') return { ...n, position: { ...n.position, x: xById[n.id] ?? n.position.x } };
+        if (mode === 'distributeY') return { ...n, position: { ...n.position, y: yById[n.id] ?? n.position.y } };
+
+        return n;
+      });
+    });
+  };
+
+  const onNodeDragStart = (_, node) => {
+    if (node.type !== 'frame') return;
+
+    const frameLeft = node.position.x;
+    const frameTop = node.position.y;
+    const frameRight = frameLeft + (node.width || node.style?.width || 360);
+    const frameBottom = frameTop + (node.height || node.style?.height || 220);
+
+    const inside = nodes.filter((n) => {
+      if (n.id === node.id || n.type === 'frame') return false;
+      const width = n.width || n.style?.width || 260;
+      const height = n.height || n.style?.height || 180;
+      const centerX = n.position.x + width / 2;
+      const centerY = n.position.y + height / 2;
+      return centerX >= frameLeft && centerX <= frameRight && centerY >= frameTop && centerY <= frameBottom;
+    });
+
+    frameDragRef.current = {
+      frameId: node.id,
+      frameStart: { ...node.position },
+      nodeStart: Object.fromEntries(inside.map((n) => [n.id, { ...n.position }])),
+    };
+  };
+
+  const onNodeDrag = (_, node) => {
+    if (node.type !== 'frame' || frameDragRef.current.frameId !== node.id) return;
+    const dx = node.position.x - (frameDragRef.current.frameStart?.x || 0);
+    const dy = node.position.y - (frameDragRef.current.frameStart?.y || 0);
+    const movedIds = new Set(Object.keys(frameDragRef.current.nodeStart));
+    setNodes((prev) =>
+      prev.map((n) => {
+        if (!movedIds.has(n.id)) return n;
+        const start = frameDragRef.current.nodeStart[n.id];
+        return { ...n, position: { x: start.x + dx, y: start.y + dy } };
+      })
+    );
+  };
+
   useEffect(() => {
     const onKeyDown = (event) => {
       const meta = event.metaKey || event.ctrlKey;
@@ -931,14 +1122,28 @@ function DiagramApp() {
       const targetTag = event.target?.tagName;
       if (targetTag === 'INPUT' || targetTag === 'TEXTAREA') return;
 
-      if (event.key.toLowerCase() === 'c' && selectedNodeId) {
+      const key = event.key.toLowerCase();
+
+      if (key === 'z' && !event.shiftKey) {
+        handleUndo();
+        event.preventDefault();
+        return;
+      }
+
+      if ((key === 'z' && event.shiftKey) || key === 'y') {
+        handleRedo();
+        event.preventDefault();
+        return;
+      }
+
+      if (key === 'c' && selectedNodeId) {
         const selected = nodes.find((n) => n.id === selectedNodeId);
         if (!selected) return;
         window.__liberteClipboardNode = deepClone(selected);
         event.preventDefault();
       }
 
-      if (event.key.toLowerCase() === 'v' && window.__liberteClipboardNode) {
+      if (key === 'v' && window.__liberteClipboardNode) {
         const cloned = deepClone(window.__liberteClipboardNode);
         const newId = nanoid(10);
         const nextNode = {
@@ -959,7 +1164,7 @@ function DiagramApp() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [nodes, selectedNodeId, setNodes]);
+  }, [nodes, selectedNodeId, setNodes, handleUndo, handleRedo]);
 
   return (
     <div className="layout">
@@ -967,6 +1172,12 @@ function DiagramApp() {
         <div className="topbar">
           <button className="topbar__btn icon-btn" onClick={handleNewSchema} title="Новая схема" aria-label="Новая схема">
             <span className="material-symbols-outlined">note_add</span>
+          </button>
+          <button className="topbar__btn icon-btn" onClick={handleUndo} title="Undo (Ctrl/Cmd+Z)" aria-label="Undo">
+            <span className="material-symbols-outlined">undo</span>
+          </button>
+          <button className="topbar__btn icon-btn" onClick={handleRedo} title="Redo (Ctrl/Cmd+Shift+Z)" aria-label="Redo">
+            <span className="material-symbols-outlined">redo</span>
           </button>
           <button className={`topbar__btn icon-btn ${savePulse ? 'topbar__btn--saving' : ''}`} onClick={handleSave} title="Сохранить" aria-label="Сохранить">
             <span className="material-symbols-outlined">save</span>
@@ -1001,6 +1212,19 @@ function DiagramApp() {
           <span className="topbar__name">{currentSchemaName ? `Схема: ${currentSchemaName}` : 'Без имени'}</span>
         </div>
 
+        {selectedBlockNodes.length > 1 && (
+          <div className="alignbar">
+            <button className="topbar__btn icon-btn" onClick={() => alignSelected('left')} title="Выровнять по левому краю"><span className="material-symbols-outlined">format_align_left</span></button>
+            <button className="topbar__btn icon-btn" onClick={() => alignSelected('hcenter')} title="Выровнять по центру X"><span className="material-symbols-outlined">align_horizontal_center</span></button>
+            <button className="topbar__btn icon-btn" onClick={() => alignSelected('right')} title="Выровнять по правому краю"><span className="material-symbols-outlined">format_align_right</span></button>
+            <button className="topbar__btn icon-btn" onClick={() => alignSelected('top')} title="Выровнять по верхнему краю"><span className="material-symbols-outlined">vertical_align_top</span></button>
+            <button className="topbar__btn icon-btn" onClick={() => alignSelected('vcenter')} title="Выровнять по центру Y"><span className="material-symbols-outlined">align_vertical_center</span></button>
+            <button className="topbar__btn icon-btn" onClick={() => alignSelected('bottom')} title="Выровнять по нижнему краю"><span className="material-symbols-outlined">vertical_align_bottom</span></button>
+            <button className="topbar__btn icon-btn" onClick={() => alignSelected('distributeX')} title="Распределить по горизонтали"><span className="material-symbols-outlined">view_week</span></button>
+            <button className="topbar__btn icon-btn" onClick={() => alignSelected('distributeY')} title="Распределить по вертикали"><span className="material-symbols-outlined">view_agenda</span></button>
+          </div>
+        )}
+
         <ReactFlow
           nodes={renderedNodes}
           edges={renderedEdges}
@@ -1012,16 +1236,27 @@ function DiagramApp() {
           onConnectEnd={onConnectEnd}
           onReconnect={onReconnect}
           connectionLineType={ConnectionLineType.Bezier}
-          onNodeClick={(_, n) => setSelectedNodeId(n.id)}
+          onNodeClick={(event, n) => {
+            if (event.shiftKey) {
+              setNodes((prev) => prev.map((node) => (node.id === n.id ? { ...node, selected: !node.selected } : node)));
+            } else {
+              setNodes((prev) => prev.map((node) => ({ ...node, selected: node.id === n.id })));
+            }
+            setSelectedNodeId(n.id);
+          }}
           onNodeMouseEnter={(_, n) => setHoveredNodeId(n.id)}
           onNodeMouseLeave={() => setHoveredNodeId(null)}
+          onNodeDragStart={onNodeDragStart}
+          onNodeDrag={onNodeDrag}
           onNodeDoubleClick={(event, n) => {
             if (n.type !== 'block') return;
+            if (event.target.closest('.rf-block__header')) return;
             openInstanceEditorForNode(n);
           }}
           onPaneClick={() => {
             setSelectedNodeId(null);
             setHoveredNodeId(null);
+            setNodes((prev) => prev.map((n) => ({ ...n, selected: false })));
             closeMenu();
           }}
           nodeTypes={nodeTypes}
