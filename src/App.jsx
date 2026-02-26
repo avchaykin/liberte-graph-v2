@@ -1130,13 +1130,13 @@ function DiagramApp() {
 
       const key = event.key.toLowerCase();
 
-      if (key === 'z' && !event.shiftKey) {
+      if ((key === 'z' || key === 'я') && !event.shiftKey) {
         handleUndo();
         event.preventDefault();
         return;
       }
 
-      if ((key === 'z' && event.shiftKey) || key === 'y') {
+      if (((key === 'z' || key === 'я') && event.shiftKey) || key === 'y' || key === 'н') {
         handleRedo();
         event.preventDefault();
         return;
