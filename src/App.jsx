@@ -399,7 +399,7 @@ function DiagramApp() {
       const raw = inPort ? inPort.type : (node.data.outputs || []).find((p) => p.id === handleId)?.type;
       return String(raw || '')
         .split(',')
-        .map((x) => x.trim())
+        .map((x) => x.trim().toLowerCase())
         .filter(Boolean);
     },
     [nodes]
