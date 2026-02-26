@@ -113,6 +113,7 @@ function BlockNode({ data, selected }) {
   const badgeValue = String(badgeAttr?.value || '').trim();
   const badgeLong = badgeValue.length > 2;
   const badgeVeryLong = badgeValue.length > 6;
+  const badgeFontSize = badgeValue.length <= 6 ? 11 : badgeValue.length <= 10 ? 8 : 6;
 
   const maxPorts = Math.max(inPorts.length, outPorts.length, 1);
   const minimizedBodyHeight = Math.max(58, PORTS_PAD * 2 + maxPorts * PORT_ROW_H);
@@ -221,7 +222,13 @@ function BlockNode({ data, selected }) {
       )}
 
       {minimized && badgeValue && (
-        <div className={`rf-block__badge ${badgeLong ? 'rf-block__badge--long' : ''} ${badgeVeryLong ? 'rf-block__badge--very-long' : ''}`}>{badgeValue}</div>
+        <div
+          className={`rf-block__badge ${badgeLong ? 'rf-block__badge--long' : ''} ${badgeVeryLong ? 'rf-block__badge--very-long' : ''}`}
+          style={{ fontSize: `${badgeFontSize}px` }}
+          title={badgeValue}
+        >
+          {badgeValue}
+        </div>
       )}
 
       {(minimized || tooltipAttrs.length > 0) && (
@@ -1244,12 +1251,8 @@ function DiagramApp() {
           connectionLineType={ConnectionLineType.Bezier}
           onNodeClick={(event, n) => {
             if (event.shiftKey) {
-              setNodes((prev) => {
-                const next = prev.map((node) => (node.id === n.id ? { ...node, selected: !node.selected } : node));
-                const clicked = next.find((node) => node.id === n.id);
-                setSelectedNodeId(clicked?.selected ? n.id : (next.find((node) => node.selected)?.id || null));
-                return next;
-              });
+              setNodes((prev) => prev.map((node) => (node.id === n.id ? { ...node, selected: true } : node)));
+              setSelectedNodeId(n.id);
             } else {
               setNodes((prev) => prev.map((node) => ({ ...node, selected: node.id === n.id })));
               setSelectedNodeId(n.id);
