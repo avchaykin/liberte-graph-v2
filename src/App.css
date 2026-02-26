@@ -39,6 +39,20 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   padding: 6px;
 }
 
+.alignbar {
+  position: absolute;
+  top: 58px;
+  left: 10px;
+  z-index: 45;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 6px;
+}
+
 .topbar__btn {
   border: 1px solid #cbd5e1;
   background: #fff;
@@ -280,6 +294,12 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   font-size: 16px;
 }
 
+.rf-block__title-icon svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
 .rf-block__icon-circle {
   width: 20px;
   height: 20px;
@@ -300,6 +320,29 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   font-size: 30px;
 }
 
+.rf-block__title-icon--large svg {
+  width: 26px;
+  height: 26px;
+}
+
+.rf-block__title-icon--badge-adjust {
+  font-size: 24px;
+}
+
+.rf-block__title-icon--badge-adjust svg {
+  width: 22px;
+  height: 22px;
+}
+
+.rf-block__title-icon--badge-adjust-more {
+  font-size: 21px;
+}
+
+.rf-block__title-icon--badge-adjust-more svg {
+  width: 19px;
+  height: 19px;
+}
+
 .rf-block__collapse {
   border: none;
   background: rgba(255,255,255,0.55);
@@ -317,6 +360,46 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   display: grid;
   place-items: center;
   pointer-events: none;
+}
+
+.rf-block__minimized-icon-wrap--raised {
+  transform: translateY(-5px);
+}
+
+.rf-block__minimized-icon-wrap--raised-more {
+  transform: translateY(-8px);
+}
+
+.rf-block__badge {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rf-block__badge--long {
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  bottom: 5px;
+  min-width: 0;
+  border-radius: 10px;
+}
+
+.rf-block__badge--very-long {
+  font-size: 10px;
+  letter-spacing: 0.01em;
 }
 
 .rf-frame {

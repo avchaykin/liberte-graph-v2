@@ -112,6 +112,7 @@ function BlockNode({ data, selected }) {
   const badgeAttr = (data.attributes || []).find((a) => String(a.name || '').toLowerCase() === 'badge');
   const badgeValue = String(badgeAttr?.value || '').trim();
   const badgeLong = badgeValue.length > 2;
+  const badgeVeryLong = badgeValue.length > 6;
 
   const maxPorts = Math.max(inPorts.length, outPorts.length, 1);
   const minimizedBodyHeight = Math.max(58, PORTS_PAD * 2 + maxPorts * PORT_ROW_H);
@@ -212,15 +213,15 @@ function BlockNode({ data, selected }) {
       )}
 
       {minimized && data.icon && (
-        <div className={`rf-block__minimized-icon-wrap ${badgeLong ? 'rf-block__minimized-icon-wrap--raised' : ''}`}>
+        <div className={`rf-block__minimized-icon-wrap ${badgeLong ? 'rf-block__minimized-icon-wrap--raised' : ''} ${badgeVeryLong ? 'rf-block__minimized-icon-wrap--raised-more' : ''}`}>
           <span className="rf-block__icon-circle rf-block__icon-circle--large">
-            {renderBlockIcon(data.icon, `rf-block__title-icon rf-block__title-icon--large ${badgeLong ? 'rf-block__title-icon--badge-adjust' : ''}`)}
+            {renderBlockIcon(data.icon, `rf-block__title-icon rf-block__title-icon--large ${badgeLong ? 'rf-block__title-icon--badge-adjust' : ''} ${badgeVeryLong ? 'rf-block__title-icon--badge-adjust-more' : ''}`)}
           </span>
         </div>
       )}
 
       {minimized && badgeValue && (
-        <div className={`rf-block__badge ${badgeLong ? 'rf-block__badge--long' : ''}`}>{badgeValue}</div>
+        <div className={`rf-block__badge ${badgeLong ? 'rf-block__badge--long' : ''} ${badgeVeryLong ? 'rf-block__badge--very-long' : ''}`}>{badgeValue}</div>
       )}
 
       {(minimized || tooltipAttrs.length > 0) && (
