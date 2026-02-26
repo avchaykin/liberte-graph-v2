@@ -1039,7 +1039,7 @@ function DiagramApp() {
       if (mode === 'distributeX') {
         const sorted = [...selected].sort((a, b) => a._left - b._left);
         const totalWidth = sorted.reduce((sum, n) => sum + n._w, 0);
-        const gap = sorted.length > 1 ? (maxRight - minLeft - totalWidth) / (sorted.length - 1) : 0;
+        const gap = sorted.length > 1 ? Math.max(0, (maxRight - minLeft - totalWidth) / (sorted.length - 1)) : 0;
         let cursor = minLeft;
         for (const item of sorted) {
           xById[item.id] = cursor;
@@ -1050,7 +1050,7 @@ function DiagramApp() {
       if (mode === 'distributeY') {
         const sorted = [...selected].sort((a, b) => a._top - b._top);
         const totalHeight = sorted.reduce((sum, n) => sum + n._h, 0);
-        const gap = sorted.length > 1 ? (maxBottom - minTop - totalHeight) / (sorted.length - 1) : 0;
+        const gap = sorted.length > 1 ? Math.max(0, (maxBottom - minTop - totalHeight) / (sorted.length - 1)) : 0;
         let cursor = minTop;
         for (const item of sorted) {
           yById[item.id] = cursor;
