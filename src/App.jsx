@@ -80,10 +80,11 @@ const getTextColorForBackground = (hex = '#ffffff') => {
 
 const renderBlockIcon = (iconName, className = 'rf-block__title-icon') => {
   const clean = String(iconName || '').trim();
+  const normalized = clean.toLowerCase().replace(/_/g, '-');
   if (!clean) return null;
 
-  if (clean.startsWith('fa-')) {
-    const pascal = clean
+  if (normalized.startsWith('fa-')) {
+    const pascal = normalized
       .slice(3)
       .split('-')
       .filter(Boolean)
@@ -1365,7 +1366,7 @@ function DiagramApp() {
                         prev.map((n) => (n.id === selectedNodeId ? { ...n, data: { ...n.data, icon: e.target.value } } : n))
                       )
                     }
-                    placeholder="bolt"
+                    placeholder="bolt или fa-house"
                   />
                 </label>
                 <label className="field">
@@ -1521,7 +1522,7 @@ function DiagramApp() {
             </label>
             <label className="field">
               <span>Иконка (Material Symbols)</span>
-              <input value={draftIcon} onChange={(e) => setDraftIcon(e.target.value)} placeholder="bolt" />
+              <input value={draftIcon} onChange={(e) => setDraftIcon(e.target.value)} placeholder="bolt или fa-house" />
             </label>
             <label className="field">
               <span>Цвет заголовка</span>
