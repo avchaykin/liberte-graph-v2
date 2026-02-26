@@ -16,6 +16,8 @@ import ReactFlow, {
 import { nanoid } from 'nanoid';
 import { icon as faIcon } from '@fortawesome/fontawesome-svg-core';
 import * as faSolid from '@fortawesome/free-solid-svg-icons';
+import * as faRegular from '@fortawesome/free-regular-svg-icons';
+import * as faBrands from '@fortawesome/free-brands-svg-icons';
 import 'reactflow/dist/style.css';
 import './App.css';
 
@@ -78,19 +80,49 @@ const getTextColorForBackground = (hex = '#ffffff') => {
   return luminance > 0.65 ? '#0f172a' : '#ffffff';
 };
 
+const faPackByStyle = {
+  solid: faSolid,
+  regular: faRegular,
+  brands: faBrands,
+};
+
+const toFaKey = (name) => `fa${name
+  .split('-')
+  .filter(Boolean)
+  .map((part) => part[0].toUpperCase() + part.slice(1))
+  .join('')}`;
+
 const renderBlockIcon = (iconName, className = 'rf-block__title-icon') => {
   const clean = String(iconName || '').trim();
   const normalized = clean.toLowerCase().replace(/_/g, '-');
   if (!clean) return null;
 
   if (normalized.startsWith('fa-')) {
-    const pascal = normalized
-      .slice(3)
-      .split('-')
-      .filter(Boolean)
-      .map((part) => part[0].toUpperCase() + part.slice(1))
-      .join('');
-    const definition = faSolid[`fa${pascal}`];
+    const tokens = normalized.split(/\s+/).filter(Boolean);
+    const styleToken = tokens.find((t) => t === 'fa-solid' || t === 'fa-regular' || t === 'fa-brands');
+    const iconToken = tokens.find((t) => t.startsWith('fa-') && t !== styleToken) || tokens[0];
+    const iconNameOnly = iconToken.replace(/^fa-/, '');
+
+    const candidateNames = [
+      iconNameOnly,
+      iconNameOnly.replace(/-pro$/i, ''),
+      iconNameOnly.replace(/^pro-/, ''),
+    ].filter(Boolean);
+
+    const packs = styleToken
+      ? [faPackByStyle[styleToken.replace('fa-', '')] || faSolid]
+      : [faSolid, faRegular, faBrands];
+
+    let definition = null;
+    for (const name of candidateNames) {
+      const key = toFaKey(name);
+      for (const pack of packs) {
+        definition = pack?.[key] || null;
+        if (definition) break;
+      }
+      if (definition) break;
+    }
+
     if (!definition) return <span className={`material-symbols-outlined ${className}`}>category</span>;
     return <span className={className} dangerouslySetInnerHTML={{ __html: faIcon(definition).html.join('') }} />;
   }
@@ -314,6 +346,7 @@ function DiagramApp() {
   const [menuDrag, setMenuDrag] = useState({ kind: null, group: null, typeId: null });
 
   const historyRef = useRef({ undo: [], redo: [], recording: true });
+  const lastSnapshotRef = useRef(null);
 
   const nodeTypes = useMemo(() => ({ block: BlockNode, frame: FrameNode }), []);
 
@@ -520,6 +553,7 @@ function DiagramApp() {
     setCurrentSchemaName(snap.currentSchemaName || '');
     requestAnimationFrame(() => {
       if (snap.viewport) rf.setViewport(snap.viewport, { duration: 0 });
+      lastSnapshotRef.current = snap;
       historyRef.current.recording = true;
     });
   }, [rf, setNodes, setEdges]);
@@ -540,9 +574,21 @@ function DiagramApp() {
 
   useEffect(() => {
     if (!loadedRef.current || !historyRef.current.recording) return;
-    historyRef.current.undo.push(snapshotState());
+    const current = snapshotState();
+
+    if (!lastSnapshotRef.current) {
+      lastSnapshotRef.current = current;
+      return;
+    }
+
+    const prev = lastSnapshotRef.current;
+    const changed = JSON.stringify(prev) !== JSON.stringify(current);
+    if (!changed) return;
+
+    historyRef.current.undo.push(prev);
     if (historyRef.current.undo.length > 100) historyRef.current.undo.shift();
     historyRef.current.redo = [];
+    lastSnapshotRef.current = current;
   }, [blockTypes, nodes, edges, currentSchemaName, snapshotState]);
 
   useEffect(() => {
