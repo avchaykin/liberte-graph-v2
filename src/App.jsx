@@ -78,43 +78,18 @@ const getTextColorForBackground = (hex = '#ffffff') => {
   return luminance > 0.65 ? '#0f172a' : '#ffffff';
 };
 
-const toFaKey = (name) => `fa${name
-  .split('-')
-  .filter(Boolean)
-  .map((part) => part[0].toUpperCase() + part.slice(1))
-  .join('')}`;
-
 const renderBlockIcon = (iconName, className = 'rf-block__title-icon') => {
   const clean = String(iconName || '').trim();
-  const normalized = clean.toLowerCase().replace(/_/g, '-');
   if (!clean) return null;
 
-  if (normalized.startsWith('fa-')) {
-    const tokens = normalized.split(/\s+/).filter(Boolean);
-    const iconToken = tokens.find((t) => t.startsWith('fa-') && t !== 'fa-solid') || tokens[0];
-    const iconNameOnly = iconToken.replace(/^fa-/, '');
-
-    const baseNames = [
-      iconNameOnly,
-      iconNameOnly.replace(/-pro$/i, ''),
-      iconNameOnly.replace(/^pro-/, ''),
-    ].filter(Boolean);
-
-    const candidateNames = [...baseNames];
-    for (const name of baseNames) {
-      const parts = name.split('-').filter(Boolean);
-      for (let i = 1; i < parts.length; i += 1) {
-        candidateNames.push(parts.slice(i).join('-'));
-      }
-    }
-
-    let definition = null;
-    for (const name of [...new Set(candidateNames)]) {
-      const key = toFaKey(name);
-      definition = faSolid[key] || null;
-      if (definition) break;
-    }
-
+  if (clean.startsWith('fa-')) {
+    const pascal = clean
+      .slice(3)
+      .split('-')
+      .filter(Boolean)
+      .map((part) => part[0].toUpperCase() + part.slice(1))
+      .join('');
+    const definition = faSolid[`fa${pascal}`];
     if (!definition) return <span className={`material-symbols-outlined ${className}`}>category</span>;
     return <span className={className} dangerouslySetInnerHTML={{ __html: faIcon(definition).html.join('') }} />;
   }
