@@ -1115,6 +1115,10 @@ function DiagramApp() {
     );
   };
 
+  const onNodeDragStop = () => {
+    frameDragRef.current = { frameId: null, nodeStart: {}, frameStart: null };
+  };
+
   useEffect(() => {
     const onKeyDown = (event) => {
       const meta = event.metaKey || event.ctrlKey;
@@ -1248,6 +1252,7 @@ function DiagramApp() {
           onNodeMouseLeave={() => setHoveredNodeId(null)}
           onNodeDragStart={onNodeDragStart}
           onNodeDrag={onNodeDrag}
+          onNodeDragStop={onNodeDragStop}
           onNodeDoubleClick={(event, n) => {
             if (n.type !== 'block') return;
             if (event.target.closest('.rf-block__header')) return;
