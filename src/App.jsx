@@ -1243,11 +1243,16 @@ function DiagramApp() {
           connectionLineType={ConnectionLineType.Bezier}
           onNodeClick={(event, n) => {
             if (event.shiftKey) {
-              setNodes((prev) => prev.map((node) => (node.id === n.id ? { ...node, selected: !node.selected } : node)));
+              setNodes((prev) => {
+                const next = prev.map((node) => (node.id === n.id ? { ...node, selected: !node.selected } : node));
+                const clicked = next.find((node) => node.id === n.id);
+                setSelectedNodeId(clicked?.selected ? n.id : (next.find((node) => node.selected)?.id || null));
+                return next;
+              });
             } else {
               setNodes((prev) => prev.map((node) => ({ ...node, selected: node.id === n.id })));
+              setSelectedNodeId(n.id);
             }
-            setSelectedNodeId(n.id);
           }}
           onNodeMouseEnter={(_, n) => setHoveredNodeId(n.id)}
           onNodeMouseLeave={() => setHoveredNodeId(null)}
