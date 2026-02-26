@@ -16,8 +16,6 @@ import ReactFlow, {
 import { nanoid } from 'nanoid';
 import { icon as faIcon } from '@fortawesome/fontawesome-svg-core';
 import * as faSolid from '@fortawesome/free-solid-svg-icons';
-import * as faRegular from '@fortawesome/free-regular-svg-icons';
-import * as faBrands from '@fortawesome/free-brands-svg-icons';
 import 'reactflow/dist/style.css';
 import './App.css';
 
@@ -80,12 +78,6 @@ const getTextColorForBackground = (hex = '#ffffff') => {
   return luminance > 0.65 ? '#0f172a' : '#ffffff';
 };
 
-const faPackByStyle = {
-  solid: faSolid,
-  regular: faRegular,
-  brands: faBrands,
-};
-
 const toFaKey = (name) => `fa${name
   .split('-')
   .filter(Boolean)
@@ -99,27 +91,27 @@ const renderBlockIcon = (iconName, className = 'rf-block__title-icon') => {
 
   if (normalized.startsWith('fa-')) {
     const tokens = normalized.split(/\s+/).filter(Boolean);
-    const styleToken = tokens.find((t) => t === 'fa-solid' || t === 'fa-regular' || t === 'fa-brands');
-    const iconToken = tokens.find((t) => t.startsWith('fa-') && t !== styleToken) || tokens[0];
+    const iconToken = tokens.find((t) => t.startsWith('fa-') && t !== 'fa-solid') || tokens[0];
     const iconNameOnly = iconToken.replace(/^fa-/, '');
 
-    const candidateNames = [
+    const baseNames = [
       iconNameOnly,
       iconNameOnly.replace(/-pro$/i, ''),
       iconNameOnly.replace(/^pro-/, ''),
     ].filter(Boolean);
 
-    const packs = styleToken
-      ? [faPackByStyle[styleToken.replace('fa-', '')] || faSolid]
-      : [faSolid, faRegular, faBrands];
+    const candidateNames = [...baseNames];
+    for (const name of baseNames) {
+      const parts = name.split('-').filter(Boolean);
+      for (let i = 1; i < parts.length; i += 1) {
+        candidateNames.push(parts.slice(i).join('-'));
+      }
+    }
 
     let definition = null;
-    for (const name of candidateNames) {
+    for (const name of [...new Set(candidateNames)]) {
       const key = toFaKey(name);
-      for (const pack of packs) {
-        definition = pack?.[key] || null;
-        if (definition) break;
-      }
+      definition = faSolid[key] || null;
       if (definition) break;
     }
 
@@ -347,6 +339,7 @@ function DiagramApp() {
 
   const historyRef = useRef({ undo: [], redo: [], recording: true });
   const lastSnapshotRef = useRef(null);
+  const dragSnapshotRef = useRef(null);
 
   const nodeTypes = useMemo(() => ({ block: BlockNode, frame: FrameNode }), []);
 
@@ -1133,6 +1126,11 @@ function DiagramApp() {
   };
 
   const onNodeDragStart = (_, node) => {
+    if (!dragSnapshotRef.current) {
+      dragSnapshotRef.current = snapshotState();
+      historyRef.current.recording = false;
+    }
+
     if (node.type !== 'frame') return;
 
     const frameLeft = node.position.x;
@@ -1172,6 +1170,21 @@ function DiagramApp() {
 
   const onNodeDragStop = () => {
     frameDragRef.current = { frameId: null, nodeStart: {}, frameStart: null };
+
+    const startSnap = dragSnapshotRef.current;
+    dragSnapshotRef.current = null;
+    historyRef.current.recording = true;
+
+    if (!startSnap) return;
+
+    const endSnap = snapshotState();
+    const changed = JSON.stringify(startSnap) !== JSON.stringify(endSnap);
+    if (!changed) return;
+
+    historyRef.current.undo.push(startSnap);
+    if (historyRef.current.undo.length > 100) historyRef.current.undo.shift();
+    historyRef.current.redo = [];
+    lastSnapshotRef.current = endSnap;
   };
 
   useEffect(() => {
