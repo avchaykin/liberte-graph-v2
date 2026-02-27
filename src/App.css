@@ -166,6 +166,10 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   font-weight: 600;
   color: #0f172a;
   min-width: 80px;
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .topbar__schema:empty::after {

@@ -329,14 +329,15 @@ function DiagramApp() {
 
   const groupOrder = useMemo(() => Object.keys(grouped), [grouped]);
 
-  const savedSchemas = useMemo(() => {
-    if (!showLoad) return {};
+  const [savedSchemas, setSavedSchemas] = useState({});
+
+  const refreshSavedSchemas = useCallback(() => {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_SCHEMAS) || '{}');
+      setSavedSchemas(JSON.parse(localStorage.getItem(STORAGE_SCHEMAS) || '{}'));
     } catch {
-      return {};
+      setSavedSchemas({});
     }
-  }, [showLoad]);
+  }, []);
 
   const connectedByNode = useMemo(() => {
     const map = {};
@@ -587,6 +588,16 @@ function DiagramApp() {
     return () => clearTimeout(autosaveTimerRef.current);
   }, [nodes, edges, blockTypes, currentSchemaName, buildPayload]);
 
+  useEffect(() => {
+    if (!showLoad) return;
+    refreshSavedSchemas();
+    const onStorage = (event) => {
+      if (event.key === STORAGE_SCHEMAS) refreshSavedSchemas();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [showLoad, refreshSavedSchemas]);
+
   const persistNamedSchema = useCallback(
     (name) => {
       const clean = name.trim();
@@ -599,6 +610,7 @@ function DiagramApp() {
       }
       map[clean] = buildPayload(clean);
       localStorage.setItem(STORAGE_SCHEMAS, JSON.stringify(map));
+      setSavedSchemas(map);
       localStorage.setItem(STORAGE_LAST_NAME, clean);
       setCurrentSchemaName(clean);
       return true;
