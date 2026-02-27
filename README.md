@@ -1,4 +1,4 @@
-# Liberte Graph v2
+# Liberté Graph v2
 
 Visual home schematic editor (React + React Flow).
 
