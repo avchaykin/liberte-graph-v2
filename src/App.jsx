@@ -120,8 +120,8 @@ function BlockNode({ data, selected }) {
 
   return (
     <div
-      className={`rf-block ${selected ? 'rf-block--selected' : ''} ${minimized ? 'rf-block--collapsed' : ''}`}
-      style={minimized ? { minHeight: `${minimizedBodyHeight}px`, background: data.headerColor || '#BFDBFE' } : undefined}
+      className={`rf-block ${selected ? 'rf-block--selected' : ''} ${minimized ? 'rf-block--collapsed' : ''} ${data.todo ? 'rf-block--todo' : ''}`}
+      style={minimized ? { minHeight: `${minimizedBodyHeight}px`, backgroundColor: data.headerColor || '#BFDBFE' } : undefined}
       onDoubleClick={(e) => {
         if (!minimized) return;
         e.stopPropagation();
@@ -425,15 +425,18 @@ function DiagramApp() {
           sTypes.length > 0
           && tTypes.length > 0
           && !sTypes.some((s) => tTypes.includes(s));
+        const sourceNode = nodes.find((n) => n.id === e.source);
+        const targetNode = nodes.find((n) => n.id === e.target);
+        const isTodoEdge = Boolean(sourceNode?.data?.todo || targetNode?.data?.todo);
         return {
           ...e,
           type: e.type === 'bezier' ? 'default' : e.type || 'default',
           style: mismatch
-            ? { ...(e.style || {}), stroke: '#ef4444', strokeWidth: 2.5 }
-            : { ...(e.style || {}), stroke: '#cbd5e1', strokeWidth: 2 },
+            ? { ...(e.style || {}), stroke: '#ef4444', strokeWidth: 2.5, strokeDasharray: isTodoEdge ? '8 6' : undefined }
+            : { ...(e.style || {}), stroke: '#cbd5e1', strokeWidth: 2, strokeDasharray: isTodoEdge ? '8 6' : undefined },
         };
       }),
-    [edges, getHandleTypes]
+    [edges, getHandleTypes, nodes]
   );
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) || null;
@@ -797,6 +800,7 @@ function DiagramApp() {
         attrsCollapsed: false,
         icon: typeDef.icon || '',
         headerColor: typeDef.headerColor || PASTEL_COLORS[0],
+        todo: false,
         inputs: deepClone(typeDef.inputs),
         outputs: deepClone(typeDef.outputs),
         attributes: typeDef.attributes.map((attr) => ({
@@ -1425,7 +1429,6 @@ function DiagramApp() {
                   <span>Имя экземпляра</span>
                   <input value={selectedNode.data.instanceName} onChange={(e) => updateNodeName(e.target.value)} />
                 </label>
-
                 <div className="inspector-actions">
                   <button className="btn-primary icon-btn" type="button" onClick={openInstanceEditor} title="Редактировать экземпляр" aria-label="Редактировать экземпляр">
                     <span className="material-symbols-outlined">tune</span>
@@ -1489,6 +1492,26 @@ function DiagramApp() {
                         <p>Нет выходов</p>
                       )}
                     </div>
+                  </div>
+                </div>
+
+                <div className="inspector-desc inspector-desc--flag">
+                  <div className="inspector-desc__head">
+                    <strong>Статус</strong>
+                  </div>
+                  <div className="inspector-desc__section">
+                    <label className="checkbox-inline checkbox-inline--boxed">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(selectedNode.data.todo)}
+                        onChange={(e) =>
+                          setNodes((prev) =>
+                            prev.map((n) => (n.id === selectedNodeId ? { ...n, data: { ...n.data, todo: e.target.checked } } : n))
+                          )
+                        }
+                      />
+                      Проектируемый
+                    </label>
                   </div>
                 </div>
 

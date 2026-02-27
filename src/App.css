@@ -353,11 +353,29 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   border-color: transparent;
 }
 
+.rf-block--todo {
+  border-style: dashed;
+  border-color: #94a3b8;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(100, 116, 139, 0.14) 0,
+    rgba(100, 116, 139, 0.14) 8px,
+    rgba(100, 116, 139, 0.04) 8px,
+    rgba(100, 116, 139, 0.04) 16px
+  );
+}
+
+.rf-block--collapsed.rf-block--todo {
+  border-color: #64748b;
+}
+
 .rf-block--selected {
   box-shadow: 0 0 0 2px #93c5fd, 0 10px 24px rgba(15, 23, 42, 0.1);
 }
 
 .rf-block__header {
+  position: relative;
+  overflow: hidden;
   padding: 10px 12px;
   border-bottom: 1px solid #e5e7eb;
   font-weight: 600;
@@ -369,7 +387,23 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   gap: 8px;
 }
 
+.rf-block--todo .rf-block__header::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(71, 85, 105, 0.2) 0,
+    rgba(71, 85, 105, 0.2) 8px,
+    rgba(71, 85, 105, 0.08) 8px,
+    rgba(71, 85, 105, 0.08) 16px
+  );
+}
+
 .rf-block__title-wrap {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   gap: 6px;
   align-items: center;
@@ -429,6 +463,8 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 }
 
 .rf-block__collapse {
+  position: relative;
+  z-index: 1;
   border: none;
   background: rgba(255,255,255,0.55);
   border-radius: 6px;
@@ -786,6 +822,18 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   gap: 6px;
   font-size: 13px;
   color: #334155;
+}
+
+.inspector-desc--flag {
+  margin-bottom: 10px;
+}
+
+.checkbox-inline--boxed {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  background: #f8fafc;
 }
 
 .row-controls {
