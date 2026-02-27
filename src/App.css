@@ -222,19 +222,17 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 
 .inspector-desc__section ul {
   margin: 6px 0 10px;
-  padding-left: 18px;
+  padding-left: 0;
+  list-style: none;
 }
 
 .inspector-desc__section li {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 2px 8px;
+  display: block;
   font-size: 13px;
-  align-items: center;
 }
 
 .inspector-desc__section li small {
-  grid-column: 1 / -1;
+  display: block;
   color: #64748b;
   font-size: 11px;
 }
@@ -244,7 +242,46 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   font-style: normal;
 }
 
+.io-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.io-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.6fr);
+  gap: 8px;
+  align-items: baseline;
+  font-size: 13px;
+}
+
+.io-main {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.io-name {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.io-type-inline {
+  margin-left: 4px;
+  color: #e2e8f0;
+}
+
+.io-connected {
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.field--icon { gap: 2px; }
 .field span { font-size: 12px; color: #475569; }
 .field input,
 .field select {
@@ -253,6 +290,43 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   padding: 8px;
   font-size: 14px;
   background: #fff;
+}
+
+.field-icon-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.field-icon-row input {
+  min-width: 0;
+}
+
+.field-icon-preview {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #334155;
+}
+
+.field-icon-preview .material-symbols-outlined,
+.field-icon-preview__icon {
+  font-size: 34px;
+}
+
+.field-icon-preview__icon svg {
+  width: 34px;
+  height: 34px;
+}
+
+.field--compact {
+  margin-top: 8px;
+  margin-bottom: 0;
 }
 
 .hint {

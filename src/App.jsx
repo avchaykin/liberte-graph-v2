@@ -1406,28 +1406,25 @@ function DiagramApp() {
             {selectedNode.type === 'block' ? (
               <>
                 <label className="field">
-                  <span>Группа</span>
-                  <input value={selectedNode.data.blockGroup || selectedType?.group || ''} disabled />
-                </label>
-                <label className="field">
-                  <span>Тип блока</span>
-                  <input value={selectedNode.data.blockName || selectedType?.name || ''} disabled />
-                </label>
-                <label className="field">
-                  <span>Иконка (Material Symbols)</span>
-                  <input
-                    value={selectedNode.data.icon || ''}
-                    onChange={(e) =>
-                      setNodes((prev) =>
-                        prev.map((n) => (n.id === selectedNodeId ? { ...n, data: { ...n.data, icon: e.target.value } } : n))
-                      )
-                    }
-                    placeholder="bolt или fa-house"
-                  />
-                </label>
-                <label className="field">
-                  <span>Имя экземпляра</span>
+                  <span>{selectedNode.data.typeId || ''}</span>
                   <input value={selectedNode.data.instanceName} onChange={(e) => updateNodeName(e.target.value)} />
+                </label>
+                <label className="field field--icon">
+                  <span>Иконка</span>
+                  <div className="field-icon-row">
+                    <input
+                      value={selectedNode.data.icon || ''}
+                      onChange={(e) =>
+                        setNodes((prev) =>
+                          prev.map((n) => (n.id === selectedNodeId ? { ...n, data: { ...n.data, icon: e.target.value } } : n))
+                        )
+                      }
+                      placeholder="bolt или fa-house"
+                    />
+                    <span className="field-icon-preview" title={selectedNode.data.icon || 'icon preview'}>
+                      {renderBlockIcon(selectedNode.data.icon || '', 'field-icon-preview__icon')}
+                    </span>
+                  </div>
                 </label>
                 <div className="inspector-actions">
                   <button className="btn-primary icon-btn" type="button" onClick={openInstanceEditor} title="Редактировать экземпляр" aria-label="Редактировать экземпляр">
@@ -1453,17 +1450,20 @@ function DiagramApp() {
 
                     <div className="inspector-desc__section">
                       {selectedNode.data.inputs?.length ? (
-                        <ul>
-                          {selectedNode.data.inputs.map((p) => (
-                            <li key={`inst-in-${p.id}`}>
-                              <strong>{p.name}</strong>
-                              <em>{p.type || 'без типа'}</em>
-                              {!!connectedNamesByNodeHandle[selectedNode.id]?.[`in:${p.id}`]?.length && (
-                                <small>{connectedNamesByNodeHandle[selectedNode.id][`in:${p.id}`].map((name) => `${name} →`).join(', ')}</small>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
+                        <div className="io-table" role="table" aria-label="Входы">
+                          {selectedNode.data.inputs.map((p) => {
+                            const connected = connectedNamesByNodeHandle[selectedNode.id]?.[`in:${p.id}`]?.join(', ') || '—';
+                            return (
+                              <div className="io-row" role="row" key={`inst-in-${p.id}`}>
+                                <div className="io-main" role="cell">
+                                  <strong className="io-name">{p.name}</strong>
+                                  <span className="io-type-inline">: {p.type || '—'}</span>
+                                </div>
+                                <span className="io-connected" role="cell" title={connected}>{connected}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       ) : (
                         <p>Нет входов</p>
                       )}
@@ -1477,17 +1477,20 @@ function DiagramApp() {
 
                     <div className="inspector-desc__section">
                       {selectedNode.data.outputs?.length ? (
-                        <ul>
-                          {selectedNode.data.outputs.map((p) => (
-                            <li key={`inst-out-${p.id}`}>
-                              <strong>{p.name}</strong>
-                              <em>{p.type || 'без типа'}</em>
-                              {!!connectedNamesByNodeHandle[selectedNode.id]?.[`out:${p.id}`]?.length && (
-                                <small>{connectedNamesByNodeHandle[selectedNode.id][`out:${p.id}`].map((name) => `→ ${name}`).join(', ')}</small>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
+                        <div className="io-table" role="table" aria-label="Выходы">
+                          {selectedNode.data.outputs.map((p) => {
+                            const connected = connectedNamesByNodeHandle[selectedNode.id]?.[`out:${p.id}`]?.join(', ') || '—';
+                            return (
+                              <div className="io-row" role="row" key={`inst-out-${p.id}`}>
+                                <div className="io-main" role="cell">
+                                  <strong className="io-name">{p.name}</strong>
+                                  <span className="io-type-inline">: {p.type || '—'}</span>
+                                </div>
+                                <span className="io-connected" role="cell" title={connected}>{connected}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       ) : (
                         <p>Нет выходов</p>
                       )}
@@ -1497,7 +1500,7 @@ function DiagramApp() {
 
                 <div className="inspector-desc inspector-desc--flag">
                   <div className="inspector-desc__head">
-                    <strong>Статус</strong>
+                    <strong>Атрибуты</strong>
                   </div>
                   <div className="inspector-desc__section">
                     <label className="checkbox-inline checkbox-inline--boxed">
@@ -1512,15 +1515,15 @@ function DiagramApp() {
                       />
                       Проектируемый
                     </label>
+
+                    {selectedNode.data.attributes.map((a) => (
+                      <label className="field field--compact" key={a.name}>
+                        <span>{a.name}{a.hidden ? ' (скрытый)' : ''}</span>
+                        <input value={a.value} onChange={(e) => updateNodeAttr(a.name, e.target.value)} />
+                      </label>
+                    ))}
                   </div>
                 </div>
-
-                {selectedNode.data.attributes.map((a) => (
-                  <label className="field" key={a.name}>
-                    <span>{a.name}{a.hidden ? ' (скрытый)' : ''}</span>
-                    <input value={a.value} onChange={(e) => updateNodeAttr(a.name, e.target.value)} />
-                  </label>
-                ))}
               </>
             ) : (
               <>
