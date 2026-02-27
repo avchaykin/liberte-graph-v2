@@ -59,7 +59,7 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   border-radius: 8px;
   padding: 6px 10px;
   cursor: pointer;
-  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, color 180ms ease;
 }
 
 .topbar__btn:hover {
@@ -69,6 +69,72 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 
 .topbar__btn:active {
   background: #e2e8f0;
+}
+
+.topbar__btn--new {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.topbar__btn--new:hover {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+.topbar__btn--save {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.topbar__btn--save:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.topbar__btn--saveas {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #6d28d9;
+}
+
+.topbar__btn--saveas:hover {
+  background: #ede9fe;
+  border-color: #c4b5fd;
+}
+
+.topbar__btn--load {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.topbar__btn--load:hover {
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.topbar__btn--export {
+  background: #ecfeff;
+  border-color: #bae6fd;
+  color: #0f766e;
+}
+
+.topbar__btn--export:hover {
+  background: #cffafe;
+  border-color: #67e8f9;
+}
+
+.topbar__btn--import {
+  background: #fdf2f8;
+  border-color: #fbcfe8;
+  color: #be185d;
+}
+
+.topbar__btn--import:hover {
+  background: #fce7f3;
+  border-color: #f9a8d4;
 }
 
 .topbar__btn--saving {
@@ -89,9 +155,24 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 }
 
 .topbar__name {
-  color: #334155;
-  font-size: 12px;
-  padding: 0 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0 8px;
+}
+
+.topbar__schema {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+  min-width: 80px;
+}
+
+.topbar__schema:empty::after {
+  content: 'Без имени';
+  font-size: 14px;
+  font-weight: 500;
+  color: #94a3b8;
 }
 
 .inspector {
