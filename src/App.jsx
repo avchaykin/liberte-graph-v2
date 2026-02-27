@@ -108,7 +108,7 @@ function BlockNode({ data, selected }) {
   const tooltipAttrs = (data.attributes || [])
     .filter((a) => String(a.value || '').trim())
     .map((a) => ({ name: a.name, value: a.value }));
-  const badgeAttr = (data.attributes || []).find((a) => String(a.name || '').toLowerCase() === 'badge');
+  const badgeAttr = (data.attributes || []).find((a) => String(a.name || '').toLowerCase() === 'name');
   const badgeValue = String(badgeAttr?.value || '').trim();
   const badgeLong = badgeValue.length > 2;
   const badgeVeryLong = badgeValue.length > 6;
