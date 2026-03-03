@@ -479,6 +479,7 @@ function DiagramApp() {
 
         const baseColor = relationStyle?.color || defaultLinkStyle.color || DEFAULT_LINK_STYLE.color;
         const baseLineStyle = relationStyle?.lineStyle || defaultLinkStyle.lineStyle || DEFAULT_LINK_STYLE.lineStyle;
+        const baseLineWidth = Number(relationStyle?.lineWidth || 2);
 
         const sourceNode = nodes.find((n) => n.id === e.source);
         const targetNode = nodes.find((n) => n.id === e.target);
@@ -490,7 +491,7 @@ function DiagramApp() {
           style: {
             ...(e.style || {}),
             stroke: baseColor,
-            strokeWidth: 2,
+            strokeWidth: baseLineWidth,
             strokeDasharray: isTodoEdge ? '8 6' : LINE_STYLE_TO_DASHARRAY[baseLineStyle],
           },
         };
@@ -984,6 +985,7 @@ function DiagramApp() {
         name,
         color: relationTypes[name]?.color || defaultLinkStyle.color || DEFAULT_LINK_STYLE.color,
         lineStyle: relationTypes[name]?.lineStyle || 'solid',
+        lineWidth: relationTypes[name]?.lineWidth || 2,
       }))
     );
     setRelationEditorOpen(true);
@@ -998,6 +1000,7 @@ function DiagramApp() {
       next[name] = {
         color: item.color || defaultLinkStyle.color || DEFAULT_LINK_STYLE.color,
         lineStyle: item.lineStyle || 'solid',
+        lineWidth: Math.max(1, Math.min(12, Number(item.lineWidth) || 2)),
       };
     }
     setRelationTypes(next);
@@ -1929,7 +1932,7 @@ function DiagramApp() {
             <div className="section">
               <div className="section__head">
                 <span>Типы связей</span>
-                <button onClick={() => setRelationDraftItems((prev) => [...prev, { name: '', color: defaultLinkStyle.color || DEFAULT_LINK_STYLE.color, lineStyle: 'solid' }])}>+ Тип</button>
+                <button onClick={() => setRelationDraftItems((prev) => [...prev, { name: '', color: defaultLinkStyle.color || DEFAULT_LINK_STYLE.color, lineStyle: 'solid', lineWidth: 2 }])}>+ Тип</button>
               </div>
               {relationDraftItems.map((rel, i) => (
                 <div
@@ -1967,6 +1970,17 @@ function DiagramApp() {
                     <option value="dashed">Пунктирная</option>
                     <option value="dotted">Точечная</option>
                   </select>
+                  <input
+                    type="number"
+                    min={1}
+                    max={12}
+                    step={1}
+                    value={rel.lineWidth ?? 2}
+                    onChange={(e) =>
+                      setRelationDraftItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, lineWidth: e.target.value } : it)))
+                    }
+                    title="Толщина линии"
+                  />
                   <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
                   <button type="button" className="row-controls__delete" title="Удалить тип связи" aria-label="Удалить тип связи" onClick={() => setRelationDraftItems((prev) => prev.filter((_, idx) => idx !== i))}>
                     <span className="material-symbols-outlined">delete</span>

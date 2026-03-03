@@ -906,7 +906,7 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 }
 
 .row--relation {
-  grid-template-columns: minmax(0, 1fr) 44px 160px auto auto;
+  grid-template-columns: minmax(0, 1fr) 44px 160px 72px auto auto;
   align-items: center;
   gap: 8px;
 }
