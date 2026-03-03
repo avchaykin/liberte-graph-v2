@@ -899,7 +899,7 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 .row--relation {
   grid-template-columns: minmax(0, 1fr) 44px 160px auto auto;
   align-items: center;
-  gap: 0;
+  gap: 8px;
 }
 
 .row--attr {
@@ -998,25 +998,19 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   border-radius: 6px;
 }
 
-.row--relation > input:first-child {
-  margin-right: 8px;
-}
-
 .row--relation > select {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
+  height: 32px;
+  padding: 6px 8px;
 }
 
 .row--relation > .color-input {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  border-right: none;
-  margin-right: 0;
+  height: 32px;
 }
 
-.row--relation > .drag-handle,
 .row--relation > .row-controls__delete {
-  margin-left: 8px;
+  border: 1px solid #fecaca;
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .modal-actions {
