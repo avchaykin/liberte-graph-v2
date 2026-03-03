@@ -700,9 +700,20 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   gap: 8px;
 }
 
-.menu__head-actions {
-  display: inline-flex;
+.menu__actions {
+  display: grid;
   gap: 6px;
+  margin-bottom: 10px;
+}
+
+.menu__action {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
 }
 
 .menu__head button,
@@ -823,10 +834,10 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 .menu__add:hover,
 .menu__edit:hover,
 .menu__delete:hover,
+.menu__action:hover,
 .btn-primary:hover,
 .btn-muted:hover,
 .section__head button:hover,
-.menu__head button:hover,
 .schema-list__item:hover {
   filter: brightness(0.94);
 }
@@ -883,6 +894,12 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 .row--with-controls {
   grid-template-columns: 1fr 1fr auto;
   align-items: center;
+}
+
+.row--relation {
+  grid-template-columns: minmax(0, 1fr) 44px 160px auto auto;
+  align-items: center;
+  gap: 0;
 }
 
 .row--attr {
@@ -949,10 +966,57 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 }
 
 .row input,
+.row select,
 .row3 input {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 8px;
+  background: #fff;
+}
+
+.color-input {
+  width: 36px;
+  min-width: 36px;
+  height: 32px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 2px;
+  cursor: pointer;
+}
+
+.color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 6px;
+}
+
+.color-input::-moz-color-swatch {
+  border: none;
+  border-radius: 6px;
+}
+
+.row--relation > input:first-child {
+  margin-right: 8px;
+}
+
+.row--relation > select {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.row--relation > .color-input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none;
+  margin-right: 0;
+}
+
+.row--relation > .drag-handle,
+.row--relation > .row-controls__delete {
+  margin-left: 8px;
 }
 
 .modal-actions {

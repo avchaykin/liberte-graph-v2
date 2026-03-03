@@ -323,7 +323,6 @@ function DiagramApp() {
   const [draftOutputs, setDraftOutputs] = useState([]);
   const [draftAttrs, setDraftAttrs] = useState([]);
   const [relationEditorOpen, setRelationEditorOpen] = useState(false);
-  const [relationDraftDefault, setRelationDraftDefault] = useState(DEFAULT_LINK_STYLE);
   const [relationDraftItems, setRelationDraftItems] = useState([]);
   const [dragState, setDragState] = useState({ list: null, index: null });
   const [menuDrag, setMenuDrag] = useState({ kind: null, group: null, typeId: null });
@@ -464,7 +463,7 @@ function DiagramApp() {
 
     const withExplicitStyle = intersection.filter((typeName) => {
       const rel = relationTypes[typeName];
-      return rel?.lineStyle && rel.lineStyle !== 'default';
+      return rel?.lineStyle;
     });
 
     return withExplicitStyle[0] || intersection[0];
@@ -479,9 +478,7 @@ function DiagramApp() {
         const relationStyle = relationTypeName ? relationTypes[relationTypeName] : null;
 
         const baseColor = relationStyle?.color || defaultLinkStyle.color || DEFAULT_LINK_STYLE.color;
-        const baseLineStyle = relationStyle?.lineStyle && relationStyle.lineStyle !== 'default'
-          ? relationStyle.lineStyle
-          : (defaultLinkStyle.lineStyle || DEFAULT_LINK_STYLE.lineStyle);
+        const baseLineStyle = relationStyle?.lineStyle || defaultLinkStyle.lineStyle || DEFAULT_LINK_STYLE.lineStyle;
 
         const sourceNode = nodes.find((n) => n.id === e.source);
         const targetNode = nodes.find((n) => n.id === e.target);
@@ -982,12 +979,11 @@ function DiagramApp() {
 
   const openRelationEditor = () => {
     const allNames = knownRelationTypeNames;
-    setRelationDraftDefault(defaultLinkStyle || DEFAULT_LINK_STYLE);
     setRelationDraftItems(
       allNames.map((name) => ({
         name,
         color: relationTypes[name]?.color || defaultLinkStyle.color || DEFAULT_LINK_STYLE.color,
-        lineStyle: relationTypes[name]?.lineStyle || 'default',
+        lineStyle: relationTypes[name]?.lineStyle || 'solid',
       }))
     );
     setRelationEditorOpen(true);
@@ -1000,14 +996,10 @@ function DiagramApp() {
       const name = String(item.name || '').trim().toLowerCase();
       if (!name) continue;
       next[name] = {
-        color: item.color || relationDraftDefault.color || DEFAULT_LINK_STYLE.color,
-        lineStyle: item.lineStyle || 'default',
+        color: item.color || defaultLinkStyle.color || DEFAULT_LINK_STYLE.color,
+        lineStyle: item.lineStyle || 'solid',
       };
     }
-    setDefaultLinkStyle({
-      color: relationDraftDefault.color || DEFAULT_LINK_STYLE.color,
-      lineStyle: relationDraftDefault.lineStyle || DEFAULT_LINK_STYLE.lineStyle,
-    });
     setRelationTypes(next);
     setRelationEditorOpen(false);
   };
@@ -1438,18 +1430,12 @@ function DiagramApp() {
         {menu.visible && (
           <div className="menu" style={{ left: menu.x, top: menu.y }}>
             <div className="menu__head">
-              <span>Добавить блок</span>
-              <div className="menu__head-actions">
-                <button className="icon-btn" onClick={instantiateFrame} title="Добавить фрейм" aria-label="Добавить фрейм">
-                  <span className="material-symbols-outlined">crop_square</span>
-                </button>
-                <button className="icon-btn" onClick={openCreate} title="Создать новый тип блока" aria-label="Создать новый тип блока">
-                  <span className="material-symbols-outlined">add_box</span>
-                </button>
-                <button className="icon-btn" onClick={openRelationEditor} title="Редактор типов связей" aria-label="Редактор типов связей">
-                  <span className="material-symbols-outlined">timeline</span>
-                </button>
-              </div>
+              <span>Действия</span>
+            </div>
+            <div className="menu__actions">
+              <button className="menu__action" onClick={instantiateFrame}>Добавить фрейм</button>
+              <button className="menu__action" onClick={openCreate}>Создать блок</button>
+              <button className="menu__action" onClick={openRelationEditor}>Редактировать связи</button>
             </div>
 
             <div className="menu__groups">
@@ -1659,6 +1645,8 @@ function DiagramApp() {
                   <span>Цвет заголовка</span>
                   <input
                     type="color"
+                    className="color-input"
+                    style={{ backgroundColor: selectedNode.data.headerColor || '#E2E8F0' }}
                     value={selectedNode.data.headerColor || '#E2E8F0'}
                     onChange={(e) =>
                       setNodes((prev) =>
@@ -1713,7 +1701,7 @@ function DiagramApp() {
             </label>
             <label className="field">
               <span>Цвет заголовка</span>
-              <input type="color" value={draftHeaderColor} onChange={(e) => setDraftHeaderColor(e.target.value)} />
+              <input type="color" className="color-input" style={{ backgroundColor: draftHeaderColor }} value={draftHeaderColor} onChange={(e) => setDraftHeaderColor(e.target.value)} />
             </label>
             <p className="hint">ID создаётся автоматически: {buildTypeId(draftGroup || 'group', draftName || 'name')}</p>
 
@@ -1934,37 +1922,12 @@ function DiagramApp() {
 
             <div className="section">
               <div className="section__head">
-                <span>По умолчанию</span>
-              </div>
-              <div className="row row--with-controls">
-                <input
-                  value="По умолчанию"
-                  readOnly
-                />
-                <input
-                  type="color"
-                  value={relationDraftDefault.color || DEFAULT_LINK_STYLE.color}
-                  onChange={(e) => setRelationDraftDefault((prev) => ({ ...prev, color: e.target.value }))}
-                />
-                <select
-                  value={relationDraftDefault.lineStyle || 'solid'}
-                  onChange={(e) => setRelationDraftDefault((prev) => ({ ...prev, lineStyle: e.target.value }))}
-                >
-                  <option value="solid">Сплошная</option>
-                  <option value="dashed">Пунктирная</option>
-                  <option value="dotted">Точечная</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="section">
-              <div className="section__head">
                 <span>Типы связей</span>
-                <button onClick={() => setRelationDraftItems((prev) => [...prev, { name: '', color: relationDraftDefault.color || DEFAULT_LINK_STYLE.color, lineStyle: 'default' }])}>+ Тип</button>
+                <button onClick={() => setRelationDraftItems((prev) => [...prev, { name: '', color: defaultLinkStyle.color || DEFAULT_LINK_STYLE.color, lineStyle: 'solid' }])}>+ Тип</button>
               </div>
               {relationDraftItems.map((rel, i) => (
                 <div
-                  className="row row--with-controls"
+                  className="row row--relation"
                   key={`rel-${i}`}
                   draggable
                   onDragStart={() => onDragStart('relation-types', i)}
@@ -1981,28 +1944,27 @@ function DiagramApp() {
                   />
                   <input
                     type="color"
-                    value={rel.color || relationDraftDefault.color || DEFAULT_LINK_STYLE.color}
+                    className="color-input"
+                    style={{ backgroundColor: rel.color || defaultLinkStyle.color || DEFAULT_LINK_STYLE.color }}
+                    value={rel.color || defaultLinkStyle.color || DEFAULT_LINK_STYLE.color}
                     onChange={(e) =>
                       setRelationDraftItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, color: e.target.value } : it)))
                     }
                   />
-                  <div className="row-controls">
-                    <select
-                      value={rel.lineStyle || 'default'}
-                      onChange={(e) =>
-                        setRelationDraftItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, lineStyle: e.target.value } : it)))
-                      }
-                    >
-                      <option value="default">По умолчанию</option>
-                      <option value="solid">Сплошная</option>
-                      <option value="dashed">Пунктирная</option>
-                      <option value="dotted">Точечная</option>
-                    </select>
-                    <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
-                    <button type="button" className="row-controls__delete" title="Удалить тип связи" aria-label="Удалить тип связи" onClick={() => setRelationDraftItems((prev) => prev.filter((_, idx) => idx !== i))}>
-                      <span className="material-symbols-outlined">delete</span>
-                    </button>
-                  </div>
+                  <select
+                    value={rel.lineStyle || 'solid'}
+                    onChange={(e) =>
+                      setRelationDraftItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, lineStyle: e.target.value } : it)))
+                    }
+                  >
+                    <option value="solid">Сплошная</option>
+                    <option value="dashed">Пунктирная</option>
+                    <option value="dotted">Точечная</option>
+                  </select>
+                  <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
+                  <button type="button" className="row-controls__delete" title="Удалить тип связи" aria-label="Удалить тип связи" onClick={() => setRelationDraftItems((prev) => prev.filter((_, idx) => idx !== i))}>
+                    <span className="material-symbols-outlined">delete</span>
+                  </button>
                 </div>
               ))}
             </div>
