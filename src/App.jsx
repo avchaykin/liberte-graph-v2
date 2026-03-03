@@ -1429,13 +1429,19 @@ function DiagramApp() {
 
         {menu.visible && (
           <div className="menu" style={{ left: menu.x, top: menu.y }}>
-            <div className="menu__head">
-              <span>Действия</span>
-            </div>
             <div className="menu__actions">
-              <button className="menu__action" onClick={instantiateFrame}>Добавить фрейм</button>
-              <button className="menu__action" onClick={openCreate}>Создать блок</button>
-              <button className="menu__action" onClick={openRelationEditor}>Редактировать связи</button>
+              <button className="menu__action" onClick={instantiateFrame}>
+                <span>Добавить фрейм</span>
+                <span className="material-symbols-outlined menu__action-icon">add_ad</span>
+              </button>
+              <button className="menu__action" onClick={openCreate}>
+                <span>Создать блок</span>
+                <span className="material-symbols-outlined menu__action-icon">add</span>
+              </button>
+              <button className="menu__action" onClick={openRelationEditor}>
+                <span>Редактировать связи</span>
+                <span className="material-symbols-outlined menu__action-icon">line_end</span>
+              </button>
             </div>
 
             <div className="menu__groups">
