@@ -989,3 +989,42 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   color: #64748b;
   font-size: 12px;
 }
+
+.relation-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(110px, 140px) auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.relation-row__name {
+  font-size: 12px;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.relation-row input[type='color'] {
+  width: 36px;
+  height: 30px;
+  padding: 2px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.relation-row select {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  background: #fff;
+}
+
+.relation-row__delete {
+  border-color: #fecaca;
+  background: #fee2e2;
+  color: #991b1b;
+}

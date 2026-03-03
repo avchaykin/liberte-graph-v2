@@ -29,6 +29,17 @@ const PASTEL_COLORS = [
   '#34D399', '#10B981', '#60A5FA', '#3B82F6', '#94A3B8', '#64748B', '#475569', '#334155'
 ];
 
+const DEFAULT_LINK_STYLE = {
+  color: '#cbd5e1',
+  lineStyle: 'solid',
+};
+
+const LINE_STYLE_TO_DASHARRAY = {
+  solid: undefined,
+  dashed: '8 6',
+  dotted: '2 6',
+};
+
 const slugify = (value) =>
   value
     .toLowerCase()
@@ -278,6 +289,8 @@ function DiagramApp() {
   const [blockTypes, setBlockTypes] = useState(initialBlockTypes);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [defaultLinkStyle, setDefaultLinkStyle] = useState(DEFAULT_LINK_STYLE);
+  const [relationTypes, setRelationTypes] = useState({});
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
 
@@ -416,27 +429,50 @@ function DiagramApp() {
     [nodes]
   );
 
+  const resolveRelationTypeForEdge = useCallback((sourceTypes, targetTypes) => {
+    if (!sourceTypes.length || !targetTypes.length) return null;
+
+    const intersection = sourceTypes.filter((typeName) => targetTypes.includes(typeName));
+    if (!intersection.length) return null;
+    if (intersection.length === 1) return intersection[0];
+
+    const withExplicitStyle = intersection.filter((typeName) => {
+      const rel = relationTypes[typeName];
+      return rel?.lineStyle && rel.lineStyle !== 'default';
+    });
+
+    return withExplicitStyle[0] || intersection[0];
+  }, [relationTypes]);
+
   const renderedEdges = useMemo(
     () =>
       edges.map((e) => {
         const sTypes = getHandleTypes(e.source, e.sourceHandle);
         const tTypes = getHandleTypes(e.target, e.targetHandle);
-        const mismatch =
-          sTypes.length > 0
-          && tTypes.length > 0
-          && !sTypes.some((s) => tTypes.includes(s));
+        const relationTypeName = resolveRelationTypeForEdge(sTypes, tTypes);
+        const relationStyle = relationTypeName ? relationTypes[relationTypeName] : null;
+
+        const baseColor = relationStyle?.color || defaultLinkStyle.color || DEFAULT_LINK_STYLE.color;
+        const baseLineStyle = relationStyle?.lineStyle && relationStyle.lineStyle !== 'default'
+          ? relationStyle.lineStyle
+          : (defaultLinkStyle.lineStyle || DEFAULT_LINK_STYLE.lineStyle);
+
         const sourceNode = nodes.find((n) => n.id === e.source);
         const targetNode = nodes.find((n) => n.id === e.target);
         const isTodoEdge = Boolean(sourceNode?.data?.todo || targetNode?.data?.todo);
+
         return {
           ...e,
           type: e.type === 'bezier' ? 'default' : e.type || 'default',
-          style: mismatch
-            ? { ...(e.style || {}), stroke: '#ef4444', strokeWidth: 2.5, strokeDasharray: isTodoEdge ? '8 6' : undefined }
-            : { ...(e.style || {}), stroke: '#cbd5e1', strokeWidth: 2, strokeDasharray: isTodoEdge ? '8 6' : undefined },
+          style: {
+            ...(e.style || {}),
+            stroke: baseColor,
+            strokeWidth: 2,
+            strokeDasharray: isTodoEdge ? '8 6' : LINE_STYLE_TO_DASHARRAY[baseLineStyle],
+          },
         };
       }),
-    [edges, getHandleTypes, nodes]
+    [edges, getHandleTypes, nodes, relationTypes, defaultLinkStyle, resolveRelationTypeForEdge]
   );
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) || null;
@@ -482,6 +518,8 @@ function DiagramApp() {
       blockTypes,
       nodes,
       edges,
+      relationTypes,
+      defaultLinkStyle,
       viewport: rf.getViewport(),
     }),
     [blockTypes, nodes, edges, rf]
@@ -491,9 +529,11 @@ function DiagramApp() {
     blockTypes: deepClone(blockTypes),
     nodes: deepClone(nodes),
     edges: deepClone(edges),
+    relationTypes: deepClone(relationTypes),
+    defaultLinkStyle: deepClone(defaultLinkStyle),
     currentSchemaName,
     viewport: rf.getViewport(),
-  }), [blockTypes, nodes, edges, currentSchemaName, rf]);
+  }), [blockTypes, nodes, edges, relationTypes, defaultLinkStyle, currentSchemaName, rf]);
 
   const applyPayload = useCallback(
     (payload, { fromAutosave = false } = {}) => {
@@ -505,6 +545,8 @@ function DiagramApp() {
           type: e.type === 'bezier' ? 'default' : e.type || 'default',
         }))
       );
+      setRelationTypes(payload.relationTypes || {});
+      setDefaultLinkStyle(payload.defaultLinkStyle || DEFAULT_LINK_STYLE);
       setSelectedNodeId(null);
       if (!fromAutosave) {
         setCurrentSchemaName(payload.name || '');
@@ -523,6 +565,8 @@ function DiagramApp() {
     setBlockTypes(snap.blockTypes || initialBlockTypes);
     setNodes(snap.nodes || []);
     setEdges(snap.edges || []);
+    setRelationTypes(snap.relationTypes || {});
+    setDefaultLinkStyle(snap.defaultLinkStyle || DEFAULT_LINK_STYLE);
     setCurrentSchemaName(snap.currentSchemaName || '');
     requestAnimationFrame(() => {
       if (snap.viewport) rf.setViewport(snap.viewport, { duration: 0 });
@@ -562,7 +606,7 @@ function DiagramApp() {
     if (historyRef.current.undo.length > 100) historyRef.current.undo.shift();
     historyRef.current.redo = [];
     lastSnapshotRef.current = current;
-  }, [blockTypes, nodes, edges, currentSchemaName, snapshotState]);
+  }, [blockTypes, nodes, edges, relationTypes, defaultLinkStyle, currentSchemaName, snapshotState]);
 
   useEffect(() => {
     if (loadedRef.current) return;
@@ -589,7 +633,7 @@ function DiagramApp() {
       localStorage.setItem(STORAGE_AUTOSAVE, JSON.stringify(buildPayload(currentSchemaName || 'autosave')));
     }, 700);
     return () => clearTimeout(autosaveTimerRef.current);
-  }, [nodes, edges, blockTypes, currentSchemaName, buildPayload]);
+  }, [nodes, edges, blockTypes, relationTypes, defaultLinkStyle, currentSchemaName, buildPayload]);
 
   useEffect(() => {
     if (!showLoad) return;
@@ -654,6 +698,8 @@ function DiagramApp() {
     setNodes([]);
     setEdges([]);
     setBlockTypes(initialBlockTypes);
+    setRelationTypes({});
+    setDefaultLinkStyle(DEFAULT_LINK_STYLE);
     setSelectedNodeId(null);
     setCurrentSchemaName('');
     localStorage.removeItem(STORAGE_LAST_NAME);
@@ -1583,6 +1629,99 @@ function DiagramApp() {
         ) : (
           <p>Выберите блок на поле</p>
         )}
+
+        <div className="inspector-desc inspector-desc--relations">
+          <div className="inspector-desc__head">
+            <strong>Типы связей</strong>
+          </div>
+          <div className="inspector-desc__section">
+            <label className="field field--compact">
+              <span>Цвет по умолчанию</span>
+              <input
+                type="color"
+                value={defaultLinkStyle.color || DEFAULT_LINK_STYLE.color}
+                onChange={(e) => setDefaultLinkStyle((prev) => ({ ...prev, color: e.target.value }))}
+              />
+            </label>
+            <label className="field field--compact">
+              <span>Стиль по умолчанию</span>
+              <select
+                value={defaultLinkStyle.lineStyle || 'solid'}
+                onChange={(e) => setDefaultLinkStyle((prev) => ({ ...prev, lineStyle: e.target.value }))}
+              >
+                <option value="solid">Сплошная</option>
+                <option value="dashed">Пунктирная</option>
+                <option value="dotted">Точечная</option>
+              </select>
+            </label>
+
+            {Object.keys(relationTypes).sort().map((typeName) => (
+              <div key={typeName} className="relation-row">
+                <div className="relation-row__name">{typeName}</div>
+                <input
+                  type="color"
+                  value={relationTypes[typeName]?.color || defaultLinkStyle.color || DEFAULT_LINK_STYLE.color}
+                  onChange={(e) =>
+                    setRelationTypes((prev) => ({
+                      ...prev,
+                      [typeName]: {
+                        ...(prev[typeName] || {}),
+                        color: e.target.value,
+                      },
+                    }))
+                  }
+                />
+                <select
+                  value={relationTypes[typeName]?.lineStyle || 'default'}
+                  onChange={(e) =>
+                    setRelationTypes((prev) => ({
+                      ...prev,
+                      [typeName]: {
+                        ...(prev[typeName] || {}),
+                        lineStyle: e.target.value,
+                      },
+                    }))
+                  }
+                >
+                  <option value="default">По умолчанию</option>
+                  <option value="solid">Сплошная</option>
+                  <option value="dashed">Пунктирная</option>
+                  <option value="dotted">Точечная</option>
+                </select>
+                <button
+                  type="button"
+                  className="icon-btn relation-row__delete"
+                  title="Удалить тип связи"
+                  onClick={() =>
+                    setRelationTypes((prev) => {
+                      const copy = { ...prev };
+                      delete copy[typeName];
+                      return copy;
+                    })
+                  }
+                >
+                  <span className="material-symbols-outlined">delete</span>
+                </button>
+              </div>
+            ))}
+
+            <button
+              className="btn-muted"
+              type="button"
+              onClick={() => {
+                const name = prompt('Имя типа связи (как в типе порта)');
+                const clean = String(name || '').trim().toLowerCase();
+                if (!clean) return;
+                setRelationTypes((prev) => ({
+                  ...prev,
+                  [clean]: prev[clean] || { color: defaultLinkStyle.color || DEFAULT_LINK_STYLE.color, lineStyle: 'default' },
+                }));
+              }}
+            >
+              + Добавить тип связи
+            </button>
+          </div>
+        </div>
       </aside>
 
       {editorOpen && (
