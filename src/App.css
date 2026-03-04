@@ -640,6 +640,10 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   left: -7px;
 }
 
+.rf-block__handle--invalid {
+  border-color: #ef4444 !important;
+}
+
 .rf-block__handle.react-flow__handle-right {
   right: -7px;
 }

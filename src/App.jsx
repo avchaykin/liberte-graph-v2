@@ -34,6 +34,8 @@ const DEFAULT_LINK_STYLE = {
   lineStyle: 'solid',
 };
 
+const TYPE_MISMATCH_COLOR = '#ef4444';
+
 const LINE_STYLE_TO_DASHARRAY = {
   solid: undefined,
   dashed: '8 6',
@@ -112,6 +114,8 @@ function BlockNode({ data, selected }) {
   const inPorts = data.inputs ?? [];
   const outPorts = data.outputs ?? [];
   const connected = new Set(data.connectedHandles ?? []);
+  const invalidInputs = new Set(data.invalidInputHandles ?? []);
+  const invalidOutputs = new Set(data.invalidOutputHandles ?? []);
   const rawInstanceName = data.instanceName ?? '';
   const title = rawInstanceName.length > 0 ? rawInstanceName : (data.blockName || '');
   const minimized = Boolean(data.minimized ?? data.collapsed);
@@ -177,8 +181,8 @@ function BlockNode({ data, selected }) {
           id={p.id}
           type="target"
           position={Position.Left}
-          className="rf-block__handle"
-          style={{ top: yPos(idx), background: connected.has(p.id) ? '#94a3b8' : '#ffffff' }}
+          className={`rf-block__handle ${invalidInputs.has(p.id) ? 'rf-block__handle--invalid' : ''}`}
+          style={{ top: yPos(idx), background: invalidInputs.has(p.id) ? '#fee2e2' : (connected.has(p.id) ? '#94a3b8' : '#ffffff') }}
         />
       ))}
 
@@ -188,8 +192,8 @@ function BlockNode({ data, selected }) {
           id={p.id}
           type="source"
           position={Position.Right}
-          className="rf-block__handle"
-          style={{ top: yPos(idx), background: connected.has(p.id) ? '#94a3b8' : '#ffffff' }}
+          className={`rf-block__handle ${invalidOutputs.has(p.id) ? 'rf-block__handle--invalid' : ''}`}
+          style={{ top: yPos(idx), background: invalidOutputs.has(p.id) ? '#fee2e2' : (connected.has(p.id) ? '#94a3b8' : '#ffffff') }}
         />
       ))}
 
@@ -424,6 +428,38 @@ function DiagramApp() {
     );
   }, [setNodes]);
 
+  const typeMismatchByNode = useMemo(() => {
+    const byNode = {};
+    const parseTypes = (nodeId, handleId) => {
+      const node = nodes.find((n) => n.id === nodeId);
+      if (!node) return [];
+      const inPort = (node.data.inputs || []).find((p) => p.id === handleId);
+      const raw = inPort ? inPort.type : (node.data.outputs || []).find((p) => p.id === handleId)?.type;
+      return String(raw || '')
+        .split(',')
+        .map((x) => x.trim().toLowerCase())
+        .filter(Boolean);
+    };
+
+    for (const edge of edges) {
+      const sourceTypes = parseTypes(edge.source, edge.sourceHandle);
+      const targetTypes = parseTypes(edge.target, edge.targetHandle);
+      const hasMatch = sourceTypes.some((typeName) => targetTypes.includes(typeName));
+      if (hasMatch) continue;
+
+      if (edge.source && edge.sourceHandle) {
+        byNode[edge.source] ??= { inputs: new Set(), outputs: new Set() };
+        byNode[edge.source].outputs.add(edge.sourceHandle);
+      }
+      if (edge.target && edge.targetHandle) {
+        byNode[edge.target] ??= { inputs: new Set(), outputs: new Set() };
+        byNode[edge.target].inputs.add(edge.targetHandle);
+      }
+    }
+
+    return byNode;
+  }, [nodes, edges]);
+
   const renderedNodes = useMemo(
     () =>
       nodes.map((n) => ({
@@ -435,9 +471,11 @@ function DiagramApp() {
           onToggleMinimize: toggleNodeMinimize,
           onToggleAttrs: toggleNodeAttrs,
           connectedHandles: [...(connectedByNode[n.id] ?? [])],
+          invalidInputHandles: [...(typeMismatchByNode[n.id]?.inputs ?? [])],
+          invalidOutputHandles: [...(typeMismatchByNode[n.id]?.outputs ?? [])],
         },
       })),
-    [nodes, connectedByNode, toggleNodeMinimize, toggleNodeAttrs, hoveredNodeId]
+    [nodes, connectedByNode, toggleNodeMinimize, toggleNodeAttrs, hoveredNodeId, typeMismatchByNode]
   );
 
   const getHandleTypes = useCallback(
@@ -476,9 +514,14 @@ function DiagramApp() {
         const tTypes = getHandleTypes(e.target, e.targetHandle);
         const relationTypeName = resolveRelationTypeForEdge(sTypes, tTypes);
         const relationStyle = relationTypeName ? relationTypes[relationTypeName] : null;
+        const isTypeMismatch = !sTypes.some((typeName) => tTypes.includes(typeName));
 
-        const baseColor = relationStyle?.color || defaultLinkStyle.color || DEFAULT_LINK_STYLE.color;
-        const baseLineStyle = relationStyle?.lineStyle || defaultLinkStyle.lineStyle || DEFAULT_LINK_STYLE.lineStyle;
+        const baseColor = isTypeMismatch
+          ? TYPE_MISMATCH_COLOR
+          : (relationStyle?.color || defaultLinkStyle.color || DEFAULT_LINK_STYLE.color);
+        const baseLineStyle = isTypeMismatch
+          ? 'dotted'
+          : (relationStyle?.lineStyle || defaultLinkStyle.lineStyle || DEFAULT_LINK_STYLE.lineStyle);
         const baseLineWidth = Number(relationStyle?.lineWidth || 2);
 
         const sourceNode = nodes.find((n) => n.id === e.source);
