@@ -42,6 +42,11 @@ const LINE_STYLE_TO_DASHARRAY = {
   dotted: '2 6',
 };
 
+const hasCompatibleTypes = (sourceTypes, targetTypes) => {
+  if (!sourceTypes.length || !targetTypes.length) return true;
+  return sourceTypes.some((typeName) => targetTypes.includes(typeName));
+};
+
 const slugify = (value) =>
   value
     .toLowerCase()
@@ -444,8 +449,8 @@ function DiagramApp() {
     for (const edge of edges) {
       const sourceTypes = parseTypes(edge.source, edge.sourceHandle);
       const targetTypes = parseTypes(edge.target, edge.targetHandle);
-      const hasMatch = sourceTypes.some((typeName) => targetTypes.includes(typeName));
-      if (hasMatch) continue;
+      const isCompatible = hasCompatibleTypes(sourceTypes, targetTypes);
+      if (isCompatible) continue;
 
       if (edge.source && edge.sourceHandle) {
         byNode[edge.source] ??= { inputs: new Set(), outputs: new Set() };
@@ -514,7 +519,7 @@ function DiagramApp() {
         const tTypes = getHandleTypes(e.target, e.targetHandle);
         const relationTypeName = resolveRelationTypeForEdge(sTypes, tTypes);
         const relationStyle = relationTypeName ? relationTypes[relationTypeName] : null;
-        const isTypeMismatch = !sTypes.some((typeName) => tTypes.includes(typeName));
+        const isTypeMismatch = !hasCompatibleTypes(sTypes, tTypes);
 
         const baseColor = isTypeMismatch
           ? TYPE_MISMATCH_COLOR
