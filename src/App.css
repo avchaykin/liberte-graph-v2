@@ -536,6 +536,14 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   height: 19px;
 }
 
+.rf-block__header-actions {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .rf-block__collapse {
   position: relative;
   z-index: 1;
