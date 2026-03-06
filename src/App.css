@@ -692,6 +692,31 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   text-align: right;
 }
 
+.rf-block__mini-port-label {
+  position: absolute;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: #0f172a;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  white-space: nowrap;
+}
+
+.rf-block--collapsed:hover .rf-block__mini-port-label {
+  opacity: 1;
+}
+
+.rf-block__mini-port-label--left {
+  right: calc(100% + 12px);
+  text-align: right;
+}
+
+.rf-block__mini-port-label--right {
+  left: calc(100% + 12px);
+  text-align: left;
+}
+
 .rf-block__attrs {
   padding: 8px 12px 12px;
   display: grid;

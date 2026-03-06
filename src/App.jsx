@@ -345,6 +345,29 @@ function BlockNode({ data, selected }) {
         />
       ))}
 
+      {minimized && (
+        <>
+          {inPorts.map((p, idx) => (
+            <span
+              key={`mini-in-label-${p.id}`}
+              className="rf-block__mini-port-label rf-block__mini-port-label--left"
+              style={{ top: yPos(idx) }}
+            >
+              {p.name}
+            </span>
+          ))}
+          {outPorts.map((p, idx) => (
+            <span
+              key={`mini-out-label-${p.id}`}
+              className="rf-block__mini-port-label rf-block__mini-port-label--right"
+              style={{ top: yPos(idx) }}
+            >
+              {p.name}
+            </span>
+          ))}
+        </>
+      )}
+
       {!minimized && <div className="rf-block__ports">
         <div>
           {inPorts.map((p) => (
