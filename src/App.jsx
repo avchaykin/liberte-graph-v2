@@ -129,7 +129,7 @@ const initialBlockTypes = [
   },
   {
     id: SPECIAL_INPUT_TYPE_ID,
-    group: 'special',
+    group: 'blocks',
     name: 'Input',
     icon: 'input',
     headerColor: '#BBF7D0',
@@ -139,7 +139,7 @@ const initialBlockTypes = [
   },
   {
     id: SPECIAL_OUTPUT_TYPE_ID,
-    group: 'special',
+    group: 'blocks',
     name: 'Output',
     icon: 'output',
     headerColor: '#FED7AA',
@@ -448,7 +448,7 @@ function DiagramApp() {
         (n) => n.data?.typeId !== SPECIAL_INPUT_TYPE_ID && n.data?.typeId !== SPECIAL_OUTPUT_TYPE_ID
       );
 
-      if (!regularBlocks.length || !inputBlocks.length || !outputBlocks.length) continue;
+      if (!regularBlocks.length || (!inputBlocks.length && !outputBlocks.length)) continue;
 
       const inputs = normalizePorts(inputBlocks.flatMap((n) => pickComponentInputsFromInputBlock(n)));
       const outputs = normalizePorts(outputBlocks.flatMap((n) => pickComponentOutputsFromOutputBlock(n)));
