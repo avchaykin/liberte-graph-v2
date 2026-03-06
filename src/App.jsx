@@ -1594,6 +1594,9 @@ function DiagramApp() {
       historyRef.current.recording = false;
     }
 
+    setSelectedNodeId(node.id);
+    setNodes((prev) => prev.map((n) => ({ ...n, selected: n.id === node.id })));
+
     if (node.type !== 'frame') return;
 
     const frameLeft = node.position.x;
@@ -1785,6 +1788,14 @@ function DiagramApp() {
             if (n.type !== 'block') return;
             if (event.target.closest('.rf-block__header')) return;
             openInstanceEditorForNode(n);
+          }}
+          onSelectionChange={({ nodes: selectedNodes }) => {
+            if (!selectedNodes?.length) {
+              setSelectedNodeId(null);
+              return;
+            }
+            const lastSelected = selectedNodes[selectedNodes.length - 1];
+            setSelectedNodeId(lastSelected.id);
           }}
           onPaneClick={() => {
             setSelectedNodeId(null);
