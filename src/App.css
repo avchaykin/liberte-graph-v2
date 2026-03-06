@@ -956,6 +956,14 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   margin-bottom: 10px;
 }
 
+.inspector-meta-card {
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
 .checkbox-inline--boxed {
   width: 100%;
   padding: 8px 10px;
