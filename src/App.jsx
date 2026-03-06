@@ -270,7 +270,7 @@ function BlockNode({ data, selected }) {
               }}
               title={attrsCollapsed ? 'Показать атрибуты' : 'Скрыть атрибуты'}
             >
-              <span className="material-symbols-outlined">minimize</span>
+              <span className="material-symbols-outlined">{attrsCollapsed ? 'arrow_drop_down' : 'arrow_drop_up'}</span>
             </button>
           </div>
         </div>
