@@ -284,12 +284,18 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 .field--icon { gap: 2px; }
 .field span { font-size: 12px; color: #475569; }
 .field input,
-.field select {
+.field select,
+.field textarea {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 8px;
   font-size: 14px;
   background: #fff;
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 82px;
 }
 
 .field-icon-row {

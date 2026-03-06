@@ -1149,6 +1149,7 @@ function DiagramApp() {
           hidden: Boolean(attr.hidden),
           value: '',
         })),
+        comment: '',
       },
     };
     setNodes((prev) => [...prev, node]);
@@ -1911,6 +1912,23 @@ function DiagramApp() {
                         <input value={a.value} onChange={(e) => updateNodeAttr(a.name, e.target.value)} />
                       </label>
                     ))}
+
+                    <label className="field field--compact">
+                      <span>Comment</span>
+                      <textarea
+                        value={selectedNode.data.comment || ''}
+                        onChange={(e) =>
+                          setNodes((prev) =>
+                            prev.map((n) =>
+                              n.id === selectedNodeId
+                                ? { ...n, data: { ...n.data, comment: e.target.value } }
+                                : n
+                            )
+                          )
+                        }
+                        rows={4}
+                      />
+                    </label>
                   </div>
                 </div>
               </>
