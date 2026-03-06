@@ -536,6 +536,14 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   height: 19px;
 }
 
+.rf-block__header-actions {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .rf-block__collapse {
   position: relative;
   z-index: 1;
@@ -544,9 +552,19 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   border-radius: 6px;
   width: 22px;
   height: 22px;
+  padding: 0;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 16px;
   line-height: 1;
+}
+
+.rf-block__collapse .material-symbols-outlined {
+  font-size: 20px;
+  line-height: 1;
+  display: block;
 }
 
 .rf-block__minimized-icon-wrap {

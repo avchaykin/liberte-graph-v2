@@ -54,6 +54,58 @@ const slugify = (value) =>
     .replace(/[^a-z0-9а-яё]+/gi, '-')
     .replace(/^-+|-+$/g, '');
 
+const nodeCenterInsideFrame = (node, frameNode) => {
+  const frameLeft = frameNode.position.x;
+  const frameTop = frameNode.position.y;
+  const frameWidth = frameNode.width || frameNode.style?.width || 360;
+  const frameHeight = frameNode.height || frameNode.style?.height || 220;
+  const frameRight = frameLeft + frameWidth;
+  const frameBottom = frameTop + frameHeight;
+
+  const width = node.width || node.style?.width || 260;
+  const height = node.height || node.style?.height || 180;
+  const centerX = node.position.x + width / 2;
+  const centerY = node.position.y + height / 2;
+
+  return centerX >= frameLeft && centerX <= frameRight && centerY >= frameTop && centerY <= frameBottom;
+};
+
+const normalizePorts = (ports = []) => {
+  const used = new Set();
+  const normalized = [];
+
+  for (const port of ports) {
+    const name = String(port?.name || '').trim();
+    if (!name) continue;
+    const type = String(port?.type || '').trim();
+    const key = `${name.toLowerCase()}::${type.toLowerCase()}`;
+    if (used.has(key)) continue;
+    used.add(key);
+    normalized.push({
+      id: `p-${slugify(name)}-${slugify(type || 'any')}`,
+      name,
+      type,
+    });
+  }
+
+  return normalized;
+};
+
+const pickComponentInputsFromInputBlock = (node) => {
+  const outs = node.data?.outputs || [];
+  const ins = node.data?.inputs || [];
+  return outs.length ? outs : ins;
+};
+
+const pickComponentOutputsFromOutputBlock = (node) => {
+  const ins = node.data?.inputs || [];
+  const outs = node.data?.outputs || [];
+  return ins.length ? ins : outs;
+};
+
+const SPECIAL_INPUT_TYPE_ID = 'special/input';
+const SPECIAL_OUTPUT_TYPE_ID = 'special/output';
+
 const initialBlockTypes = [
   {
     id: 'power/circuit-breaker-1p-n',
@@ -75,7 +127,36 @@ const initialBlockTypes = [
       { name: 'Power', hidden: false },
     ],
   },
+  {
+    id: SPECIAL_INPUT_TYPE_ID,
+    group: 'blocks',
+    name: 'Input',
+    icon: 'input',
+    headerColor: '#BBF7D0',
+    inputs: [],
+    outputs: [{ id: 'out', name: 'out', type: '' }],
+    attributes: [{ name: 'Name', hidden: false }],
+  },
+  {
+    id: SPECIAL_OUTPUT_TYPE_ID,
+    group: 'blocks',
+    name: 'Output',
+    icon: 'output',
+    headerColor: '#FED7AA',
+    inputs: [{ id: 'in', name: 'in', type: '' }],
+    outputs: [],
+    attributes: [{ name: 'Name', hidden: false }],
+  },
 ];
+
+const ensureCoreBlockTypes = (types = []) => {
+  const coreById = new Map(initialBlockTypes.map((t) => [t.id, t]));
+  const next = [...types];
+  for (const [id, typeDef] of coreById.entries()) {
+    if (!next.some((t) => t.id === id)) next.push(deepClone(typeDef));
+  }
+  return next;
+};
 
 const HEADER_H = 40;
 const PORTS_PAD = 10;
@@ -166,17 +247,32 @@ function BlockNode({ data, selected }) {
             )}
             <span>{title}</span>
           </span>
-          <button
-            type="button"
-            className="rf-block__collapse"
-            onClick={(e) => {
-              e.stopPropagation();
-              data.onToggleAttrs?.(data.nodeId);
-            }}
-            title={attrsCollapsed ? 'Показать атрибуты' : 'Скрыть атрибуты'}
-          >
-            {attrsCollapsed ? '+' : '−'}
-          </button>
+          <div className="rf-block__header-actions">
+            {data.linkedFrameId && (
+              <button
+                type="button"
+                className="rf-block__collapse"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onFocusFrame?.(data.linkedFrameId);
+                }}
+                title="Перейти к описанию компонента"
+              >
+                <span className="material-symbols-outlined">arrow_right_alt</span>
+              </button>
+            )}
+            <button
+              type="button"
+              className="rf-block__collapse"
+              onClick={(e) => {
+                e.stopPropagation();
+                data.onToggleAttrs?.(data.nodeId);
+              }}
+              title={attrsCollapsed ? 'Показать атрибуты' : 'Скрыть атрибуты'}
+            >
+              <span className="material-symbols-outlined">{attrsCollapsed ? 'arrow_drop_down' : 'arrow_drop_up'}</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -353,6 +449,97 @@ function DiagramApp() {
 
   const groupOrder = useMemo(() => Object.keys(grouped), [grouped]);
 
+  useEffect(() => {
+    const frameNodes = nodes.filter((n) => n.type === 'frame');
+    const blockNodes = nodes.filter((n) => n.type === 'block');
+
+    const autoComponents = [];
+
+    for (const frameNode of frameNodes) {
+      const insideBlocks = blockNodes.filter((n) => nodeCenterInsideFrame(n, frameNode));
+      const inputBlocks = insideBlocks.filter((n) => n.data?.typeId === SPECIAL_INPUT_TYPE_ID);
+      const outputBlocks = insideBlocks.filter((n) => n.data?.typeId === SPECIAL_OUTPUT_TYPE_ID);
+      const regularBlocks = insideBlocks.filter(
+        (n) => n.data?.typeId !== SPECIAL_INPUT_TYPE_ID && n.data?.typeId !== SPECIAL_OUTPUT_TYPE_ID
+      );
+
+      if (!regularBlocks.length || (!inputBlocks.length && !outputBlocks.length)) continue;
+
+      const inputs = normalizePorts(inputBlocks.flatMap((n) => pickComponentInputsFromInputBlock(n)));
+      const outputs = normalizePorts(outputBlocks.flatMap((n) => pickComponentOutputsFromOutputBlock(n)));
+      const frameName = String(frameNode.data?.instanceName || '').trim() || 'Frame';
+
+      autoComponents.push({
+        id: `component/frame-${frameNode.id}`,
+        group: 'component',
+        name: frameName,
+        icon: 'category',
+        headerColor: frameNode.data?.headerColor || '#E2E8F0',
+        inputs,
+        outputs,
+        attributes: [
+          { name: 'ID', hidden: true },
+          { name: 'Name', hidden: true },
+        ],
+        autogeneratedFromFrameId: frameNode.id,
+      });
+    }
+
+    setBlockTypes((prev) => {
+      const prevAutoByFrameId = new Map(
+        prev
+          .filter((t) => t.autogeneratedFromFrameId)
+          .map((t) => [t.autogeneratedFromFrameId, t])
+      );
+
+      const mergedAuto = autoComponents.map((t) => {
+        const prevType = prevAutoByFrameId.get(t.autogeneratedFromFrameId);
+        return {
+          ...t,
+          attributes: prevType?.attributes?.length
+            ? deepClone(prevType.attributes)
+            : t.attributes,
+        };
+      });
+
+      const withoutAuto = prev.filter((t) => !t.autogeneratedFromFrameId);
+      const next = [...withoutAuto, ...mergedAuto];
+      if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+      return next;
+    });
+  }, [nodes]);
+
+  useEffect(() => {
+    const typeById = new Map(blockTypes.map((t) => [t.id, t]));
+    setNodes((prev) => {
+      const next = prev.map((n) => {
+        if (n.type !== 'block') return n;
+        const typeDef = typeById.get(n.data?.typeId);
+        if (!typeDef?.autogeneratedFromFrameId) return n;
+
+        const nextData = {
+          ...n.data,
+          blockGroup: typeDef.group,
+          blockName: typeDef.name,
+          instanceName: typeDef.name,
+          icon: typeDef.icon || '',
+          headerColor: typeDef.headerColor || '#E2E8F0',
+          inputs: deepClone(typeDef.inputs || []),
+          outputs: deepClone(typeDef.outputs || []),
+          attributes: (typeDef.attributes || []).map((attr) => {
+            const existing = (n.data.attributes || []).find((a) => a.name === attr.name);
+            return { name: attr.name, hidden: Boolean(attr.hidden), value: existing?.value || '' };
+          }),
+        };
+
+        if (JSON.stringify(nextData) === JSON.stringify(n.data)) return n;
+        return { ...n, data: nextData };
+      });
+      if (JSON.stringify(next) === JSON.stringify(prev)) return prev;
+      return next;
+    });
+  }, [blockTypes, setNodes]);
+
   const [savedSchemas, setSavedSchemas] = useState({});
 
   const refreshSavedSchemas = useCallback(() => {
@@ -465,6 +652,28 @@ function DiagramApp() {
     return byNode;
   }, [nodes, edges]);
 
+  const focusFrameById = useCallback((frameId) => {
+    const frameNode = nodes.find((n) => n.id === frameId && n.type === 'frame');
+    if (!frameNode) return;
+
+    setSelectedNodeId(frameId);
+    setNodes((prev) => prev.map((n) => ({ ...n, selected: n.id === frameId })));
+
+    const width = frameNode.width || frameNode.style?.width || 360;
+    const height = frameNode.height || frameNode.style?.height || 220;
+    const centerX = frameNode.position.x + width / 2;
+    const centerY = frameNode.position.y + height / 2;
+    const nextZoom = Math.max(0.6, rf.getViewport().zoom || 1);
+
+    rf.setCenter(centerX, centerY, { zoom: nextZoom, duration: 320 });
+  }, [nodes, rf, setNodes]);
+
+  const blockTypeById = useMemo(() => {
+    const map = new Map();
+    for (const typeDef of blockTypes) map.set(typeDef.id, typeDef);
+    return map;
+  }, [blockTypes]);
+
   const renderedNodes = useMemo(
     () =>
       nodes.map((n) => ({
@@ -475,12 +684,14 @@ function DiagramApp() {
           nodeId: n.id,
           onToggleMinimize: toggleNodeMinimize,
           onToggleAttrs: toggleNodeAttrs,
+          onFocusFrame: focusFrameById,
+          linkedFrameId: blockTypeById.get(n.data?.typeId)?.autogeneratedFromFrameId || null,
           connectedHandles: [...(connectedByNode[n.id] ?? [])],
           invalidInputHandles: [...(typeMismatchByNode[n.id]?.inputs ?? [])],
           invalidOutputHandles: [...(typeMismatchByNode[n.id]?.outputs ?? [])],
         },
       })),
-    [nodes, connectedByNode, toggleNodeMinimize, toggleNodeAttrs, hoveredNodeId, typeMismatchByNode]
+    [nodes, connectedByNode, toggleNodeMinimize, toggleNodeAttrs, hoveredNodeId, typeMismatchByNode, focusFrameById, blockTypeById]
   );
 
   const getHandleTypes = useCallback(
@@ -552,6 +763,17 @@ function DiagramApp() {
     ? blockTypes.find((t) => t.id === selectedNode.data.typeId) || null
     : null;
   const selectedBlockNodes = nodes.filter((n) => n.type === 'block' && n.selected);
+  const autogeneratedTypeIds = useMemo(
+    () => new Set(blockTypes.filter((t) => t.autogeneratedFromFrameId).map((t) => t.id)),
+    [blockTypes]
+  );
+  const isSelectedComponentNode = Boolean(selectedNode?.type === 'block' && autogeneratedTypeIds.has(selectedNode.data?.typeId));
+  const editingTypeDef = editingId ? blockTypes.find((t) => t.id === editingId) : null;
+  const isEditingAutogeneratedType = Boolean(editingTypeDef?.autogeneratedFromFrameId);
+  const instanceEditingNode = selectedNodeId ? nodes.find((n) => n.id === selectedNodeId) : null;
+  const isEditingAutogeneratedInstance = Boolean(
+    instanceEditingNode?.type === 'block' && autogeneratedTypeIds.has(instanceEditingNode.data?.typeId)
+  );
 
   const connectedNamesByNodeHandle = useMemo(() => {
     const labels = {};
@@ -609,7 +831,7 @@ function DiagramApp() {
 
   const applyPayload = useCallback(
     (payload, { fromAutosave = false } = {}) => {
-      setBlockTypes(payload.blockTypes || initialBlockTypes);
+      setBlockTypes(ensureCoreBlockTypes(payload.blockTypes || initialBlockTypes));
       setNodes(payload.nodes || []);
       setEdges(
         (payload.edges || []).map((e) => ({
@@ -634,7 +856,7 @@ function DiagramApp() {
   const applySnapshot = useCallback((snap) => {
     if (!snap) return;
     historyRef.current.recording = false;
-    setBlockTypes(snap.blockTypes || initialBlockTypes);
+    setBlockTypes(ensureCoreBlockTypes(snap.blockTypes || initialBlockTypes));
     setNodes(snap.nodes || []);
     setEdges(snap.edges || []);
     setRelationTypes(snap.relationTypes || {});
@@ -1069,6 +1291,8 @@ function DiagramApp() {
   };
 
   const deleteType = (typeId) => {
+    const typeDef = blockTypes.find((t) => t.id === typeId);
+    if (typeDef?.autogeneratedFromFrameId) return;
     setBlockTypes((prev) => prev.filter((t) => t.id !== typeId));
     const remainingNodes = nodes.filter((n) => n.data.typeId !== typeId);
     const remainingIds = new Set(remainingNodes.map((n) => n.id));
@@ -1129,6 +1353,7 @@ function DiagramApp() {
     setNodes((prev) =>
       prev.map((n) => {
         if (n.id !== selectedNodeId) return n;
+        if (n.type === 'block' && autogeneratedTypeIds.has(n.data?.typeId)) return n;
         const effectiveName = n.type === 'block' ? (name === '' ? (n.data.blockName || '') : name) : name;
         return {
           ...n,
@@ -1539,7 +1764,12 @@ function DiagramApp() {
                     <button className="menu__add" onClick={() => instantiate(t)}>
                       {t.name}
                     </button>
-                    <button className="menu__edit icon-btn" onClick={() => openEdit(t)} title="Редактировать тип" aria-label="Редактировать тип">
+                    <button
+                      className="menu__edit icon-btn"
+                      onClick={() => openEdit(t)}
+                      title="Редактировать тип"
+                      aria-label="Редактировать тип"
+                    >
                       <span className="material-symbols-outlined">edit</span>
                     </button>
                   </div>
@@ -1558,7 +1788,7 @@ function DiagramApp() {
               <>
                 <label className="field">
                   <span>{selectedNode.data.typeId || ''}</span>
-                  <input value={selectedNode.data.instanceName} onChange={(e) => updateNodeName(e.target.value)} />
+                  <input value={selectedNode.data.instanceName} onChange={(e) => updateNodeName(e.target.value)} disabled={isSelectedComponentNode} />
                 </label>
                 <label className="field field--icon">
                   <span>Иконка</span>
@@ -1571,6 +1801,7 @@ function DiagramApp() {
                         )
                       }
                       placeholder="bolt или fa-house"
+                      disabled={isSelectedComponentNode}
                     />
                     <span className="field-icon-preview" title={selectedNode.data.icon || 'icon preview'}>
                       {renderBlockIcon(selectedNode.data.icon || '', 'field-icon-preview__icon')}
@@ -1578,7 +1809,13 @@ function DiagramApp() {
                   </div>
                 </label>
                 <div className="inspector-actions">
-                  <button className="btn-primary icon-btn" type="button" onClick={openInstanceEditor} title="Редактировать экземпляр" aria-label="Редактировать экземпляр">
+                  <button
+                    className="btn-primary icon-btn"
+                    type="button"
+                    onClick={openInstanceEditor}
+                    title="Редактировать экземпляр"
+                    aria-label="Редактировать экземпляр"
+                  >
                     <span className="material-symbols-outlined">tune</span>
                   </button>
                   <button
@@ -1663,6 +1900,7 @@ function DiagramApp() {
                             prev.map((n) => (n.id === selectedNodeId ? { ...n, data: { ...n.data, todo: e.target.checked } } : n))
                           )
                         }
+                        disabled={isSelectedComponentNode}
                       />
                       Проектируемый
                     </label>
@@ -1746,26 +1984,28 @@ function DiagramApp() {
 
             <label className="field">
               <span>Группа</span>
-              <input value={draftGroup} onChange={(e) => setDraftGroup(e.target.value)} placeholder="power" />
+              <input value={draftGroup} onChange={(e) => setDraftGroup(e.target.value)} placeholder="power" disabled={isEditingAutogeneratedType} />
             </label>
             <label className="field">
               <span>Имя блока</span>
-              <input value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Circuit Breaker 1P+N" />
+              <input value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Circuit Breaker 1P+N" disabled={isEditingAutogeneratedType} />
             </label>
             <label className="field">
               <span>Иконка (Material Symbols)</span>
-              <input value={draftIcon} onChange={(e) => setDraftIcon(e.target.value)} placeholder="bolt или fa-house" />
+              <input value={draftIcon} onChange={(e) => setDraftIcon(e.target.value)} placeholder="bolt или fa-house" disabled={isEditingAutogeneratedType} />
             </label>
             <label className="field">
               <span>Цвет заголовка</span>
-              <input type="color" className="color-input" style={{ backgroundColor: draftHeaderColor }} value={draftHeaderColor} onChange={(e) => setDraftHeaderColor(e.target.value)} />
+              <input type="color" className="color-input" style={{ backgroundColor: draftHeaderColor }} value={draftHeaderColor} onChange={(e) => setDraftHeaderColor(e.target.value)} disabled={isEditingAutogeneratedType} />
             </label>
             <p className="hint">ID создаётся автоматически: {buildTypeId(draftGroup || 'group', draftName || 'name')}</p>
 
             <div className="section">
               <div className="section__head">
                 <span>Входы</span>
-                <button onClick={() => setDraftInputs((prev) => [...prev, { id: nanoid(6), name: '', type: '' }])}>+ Вход</button>
+                {!isEditingAutogeneratedType && (
+                  <button onClick={() => setDraftInputs((prev) => [...prev, { id: nanoid(6), name: '', type: '' }])}>+ Вход</button>
+                )}
               </div>
               {draftInputs.map((p, i) => (
                 <div
@@ -1781,17 +2021,21 @@ function DiagramApp() {
                     placeholder="Название"
                     value={p.name}
                     onChange={(e) => setDraftInputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))}
+                    disabled={isEditingAutogeneratedType}
                   />
                   <input
                     placeholder="Тип (необязательно)"
                     value={p.type}
                     onChange={(e) => setDraftInputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, type: e.target.value } : it)))}
+                    disabled={isEditingAutogeneratedType}
                   />
                   <div className="row-controls">
                     <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
-                    <button type="button" className="row-controls__delete" title="Удалить вход" aria-label="Удалить вход" onClick={() => setDraftInputs((prev) => prev.filter((_, idx) => idx !== i))}>
-                      <span className="material-symbols-outlined">delete</span>
-                    </button>
+                    {!isEditingAutogeneratedType && (
+                      <button type="button" className="row-controls__delete" title="Удалить вход" aria-label="Удалить вход" onClick={() => setDraftInputs((prev) => prev.filter((_, idx) => idx !== i))}>
+                        <span className="material-symbols-outlined">delete</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1800,7 +2044,9 @@ function DiagramApp() {
             <div className="section">
               <div className="section__head">
                 <span>Выходы</span>
-                <button onClick={() => setDraftOutputs((prev) => [...prev, { id: nanoid(6), name: '', type: '' }])}>+ Выход</button>
+                {!isEditingAutogeneratedType && (
+                  <button onClick={() => setDraftOutputs((prev) => [...prev, { id: nanoid(6), name: '', type: '' }])}>+ Выход</button>
+                )}
               </div>
               {draftOutputs.map((p, i) => (
                 <div
@@ -1816,17 +2062,21 @@ function DiagramApp() {
                     placeholder="Название"
                     value={p.name}
                     onChange={(e) => setDraftOutputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))}
+                    disabled={isEditingAutogeneratedType}
                   />
                   <input
                     placeholder="Тип (необязательно)"
                     value={p.type}
                     onChange={(e) => setDraftOutputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, type: e.target.value } : it)))}
+                    disabled={isEditingAutogeneratedType}
                   />
                   <div className="row-controls">
                     <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
-                    <button type="button" className="row-controls__delete" title="Удалить выход" aria-label="Удалить выход" onClick={() => setDraftOutputs((prev) => prev.filter((_, idx) => idx !== i))}>
-                      <span className="material-symbols-outlined">delete</span>
-                    </button>
+                    {!isEditingAutogeneratedType && (
+                      <button type="button" className="row-controls__delete" title="Удалить выход" aria-label="Удалить выход" onClick={() => setDraftOutputs((prev) => prev.filter((_, idx) => idx !== i))}>
+                        <span className="material-symbols-outlined">delete</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1885,6 +2135,7 @@ function DiagramApp() {
                         setEditorOpen(false);
                       }
                     }}
+                    disabled={isEditingAutogeneratedType}
                   >
                     Удалить тип
                   </button>
@@ -1907,17 +2158,21 @@ function DiagramApp() {
             <div className="section">
               <div className="section__head">
                 <span>Входы</span>
-                <button onClick={() => setInstanceDraftInputs((prev) => [...prev, { id: nanoid(6), name: '', type: '' }])}>+ Вход</button>
+                {!isEditingAutogeneratedInstance && (
+                  <button onClick={() => setInstanceDraftInputs((prev) => [...prev, { id: nanoid(6), name: '', type: '' }])}>+ Вход</button>
+                )}
               </div>
               {instanceDraftInputs.map((p, i) => (
                 <div className="row row--with-controls" key={`i-in-${i}`} draggable onDragStart={() => onDragStart('inst-inputs', i)} onDragOver={onDragOver} onDrop={() => onDropRow('inst-inputs', i)} onDragEnd={onDragEnd}>
-                  <input placeholder="Название" value={p.name} onChange={(e) => setInstanceDraftInputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))} />
-                  <input placeholder="Тип" value={p.type || ''} onChange={(e) => setInstanceDraftInputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, type: e.target.value } : it)))} />
+                  <input placeholder="Название" value={p.name} onChange={(e) => setInstanceDraftInputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))} disabled={isEditingAutogeneratedInstance} />
+                  <input placeholder="Тип" value={p.type || ''} onChange={(e) => setInstanceDraftInputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, type: e.target.value } : it)))} disabled={isEditingAutogeneratedInstance} />
                   <div className="row-controls">
                     <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
-                    <button type="button" className="row-controls__delete" title="Удалить вход экземпляра" aria-label="Удалить вход экземпляра" onClick={() => setInstanceDraftInputs((prev) => prev.filter((_, idx) => idx !== i))}>
-                      <span className="material-symbols-outlined">delete</span>
-                    </button>
+                    {!isEditingAutogeneratedInstance && (
+                      <button type="button" className="row-controls__delete" title="Удалить вход экземпляра" aria-label="Удалить вход экземпляра" onClick={() => setInstanceDraftInputs((prev) => prev.filter((_, idx) => idx !== i))}>
+                        <span className="material-symbols-outlined">delete</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1926,17 +2181,21 @@ function DiagramApp() {
             <div className="section">
               <div className="section__head">
                 <span>Выходы</span>
-                <button onClick={() => setInstanceDraftOutputs((prev) => [...prev, { id: nanoid(6), name: '', type: '' }])}>+ Выход</button>
+                {!isEditingAutogeneratedInstance && (
+                  <button onClick={() => setInstanceDraftOutputs((prev) => [...prev, { id: nanoid(6), name: '', type: '' }])}>+ Выход</button>
+                )}
               </div>
               {instanceDraftOutputs.map((p, i) => (
                 <div className="row row--with-controls" key={`i-out-${i}`} draggable onDragStart={() => onDragStart('inst-outputs', i)} onDragOver={onDragOver} onDrop={() => onDropRow('inst-outputs', i)} onDragEnd={onDragEnd}>
-                  <input placeholder="Название" value={p.name} onChange={(e) => setInstanceDraftOutputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))} />
-                  <input placeholder="Тип" value={p.type || ''} onChange={(e) => setInstanceDraftOutputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, type: e.target.value } : it)))} />
+                  <input placeholder="Название" value={p.name} onChange={(e) => setInstanceDraftOutputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, name: e.target.value } : it)))} disabled={isEditingAutogeneratedInstance} />
+                  <input placeholder="Тип" value={p.type || ''} onChange={(e) => setInstanceDraftOutputs((prev) => prev.map((it, idx) => (idx === i ? { ...it, type: e.target.value } : it)))} disabled={isEditingAutogeneratedInstance} />
                   <div className="row-controls">
                     <span className="material-symbols-outlined drag-handle" title="Перетащите для сортировки">drag_indicator</span>
-                    <button type="button" className="row-controls__delete" title="Удалить выход экземпляра" aria-label="Удалить выход экземпляра" onClick={() => setInstanceDraftOutputs((prev) => prev.filter((_, idx) => idx !== i))}>
-                      <span className="material-symbols-outlined">delete</span>
-                    </button>
+                    {!isEditingAutogeneratedInstance && (
+                      <button type="button" className="row-controls__delete" title="Удалить выход экземпляра" aria-label="Удалить выход экземпляра" onClick={() => setInstanceDraftOutputs((prev) => prev.filter((_, idx) => idx !== i))}>
+                        <span className="material-symbols-outlined">delete</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
