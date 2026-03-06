@@ -710,6 +710,8 @@ function DiagramApp() {
     return map;
   }, [edges]);
 
+  const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+
   const knownRelationTypeNames = useMemo(() => {
     const names = new Set(Object.keys(relationTypes));
 
@@ -915,8 +917,6 @@ function DiagramApp() {
       }),
     [edges, getHandleTypes, nodeById, relationTypes, defaultLinkStyle, resolveRelationTypeForEdge]
   );
-
-  const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
   const selectedNode = (selectedNodeId && nodeById.get(selectedNodeId)) || null;
   const selectedType = selectedNode && selectedNode.type === 'block'
