@@ -599,7 +599,7 @@ function DiagramApp() {
           blockGroup: typeDef.group,
           blockName: typeDef.name,
           instanceName: typeDef.name,
-          icon: typeDef.icon || '',
+          icon: String(n.data.icon || '').trim() || typeDef.icon || '',
           headerColor: typeDef.headerColor || '#E2E8F0',
           inputs: deepClone(typeDef.inputs || []),
           outputs: deepClone(typeDef.outputs || []),
@@ -1893,7 +1893,6 @@ function DiagramApp() {
                         )
                       }
                       placeholder="bolt или fa-house"
-                      disabled={isSelectedComponentNode}
                     />
                     <span className="field-icon-preview" title={selectedNode.data.icon || 'icon preview'}>
                       {renderBlockIcon(selectedNode.data.icon || '', 'field-icon-preview__icon')}
