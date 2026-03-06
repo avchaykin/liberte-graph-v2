@@ -258,7 +258,7 @@ function BlockNode({ data, selected }) {
                 }}
                 title="Перейти к описанию компонента"
               >
-                ↗
+                <span className="material-symbols-outlined">arrow_right_alt</span>
               </button>
             )}
             <button
@@ -270,7 +270,7 @@ function BlockNode({ data, selected }) {
               }}
               title={attrsCollapsed ? 'Показать атрибуты' : 'Скрыть атрибуты'}
             >
-              {attrsCollapsed ? '+' : '−'}
+              <span className="material-symbols-outlined">minimize</span>
             </button>
           </div>
         </div>
