@@ -448,6 +448,11 @@ function FrameNode({ data, selected, dragging }) {
       >
         {data.instanceName || 'Frame'}
       </div>
+      {!!String(data.comment || '').trim() && (
+        <div className="rf-frame__comment" title={data.comment}>
+          {data.comment}
+        </div>
+      )}
     </div>
   );
 }
@@ -1251,6 +1256,7 @@ function DiagramApp() {
         headerColor: '#E2E8F0',
         frameBorderStyle: 'solid',
         fontSize: 16,
+        comment: '',
       },
     };
     setNodes((prev) => [...prev, frameNode]);
@@ -2083,6 +2089,20 @@ function DiagramApp() {
                     <option value="solid">Сплошное</option>
                     <option value="dashed">Пунктир</option>
                   </select>
+                </label>
+                <label className="field">
+                  <span>Comment</span>
+                  <textarea
+                    value={selectedNode.data.comment || ''}
+                    onChange={(e) =>
+                      setNodes((prev) =>
+                        prev.map((n) =>
+                          n.id === selectedNodeId ? { ...n, data: { ...n.data, comment: e.target.value } } : n
+                        )
+                      )
+                    }
+                    rows={4}
+                  />
                 </label>
               </>
             )}
