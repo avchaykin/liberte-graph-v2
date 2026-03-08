@@ -509,8 +509,9 @@ function FrameNode({ data, selected, dragging }) {
 
 function CommentNode({ data, selected }) {
   const comment = String(data.comment || '').trim();
+  const color = data.color || '#ffffff';
   return (
-    <div className={`rf-comment ${selected ? 'rf-comment--selected' : ''}`}>
+    <div className={`rf-comment ${selected ? 'rf-comment--selected' : ''}`} style={{ backgroundColor: color }}>
       <NodeResizer isVisible={selected} minWidth={40} minHeight={40} lineStyle={{ borderColor: '#93c5fd' }} />
       <span className="material-symbols-outlined rf-comment__icon">chat_bubble</span>
       {comment && (
@@ -1386,6 +1387,7 @@ function DiagramApp() {
       style: { width: 44, height: 44 },
       data: {
         comment: '',
+        color: '#ffffff',
       },
     };
     setNodes((prev) => [...prev, commentNode]);
@@ -2267,6 +2269,22 @@ function DiagramApp() {
               </>
             ) : (
               <>
+                <label className="field">
+                  <span>Цвет иконки</span>
+                  <input
+                    type="color"
+                    className="color-input"
+                    style={{ backgroundColor: selectedNode.data.color || '#ffffff' }}
+                    value={selectedNode.data.color || '#ffffff'}
+                    onChange={(e) =>
+                      setNodes((prev) =>
+                        prev.map((n) =>
+                          n.id === selectedNodeId ? { ...n, data: { ...n.data, color: e.target.value } } : n
+                        )
+                      )
+                    }
+                  />
+                </label>
                 <label className="field">
                   <span>Комментарий (Markdown)</span>
                   <textarea
