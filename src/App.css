@@ -296,6 +296,13 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 .field textarea {
   resize: vertical;
   min-height: 82px;
+  font-family: inherit;
+}
+
+.comment-textarea {
+  font-family: inherit;
+  font-size: 12px !important;
+  line-height: 1.4;
 }
 
 .field-icon-row {
@@ -655,9 +662,84 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
 .rf-frame__comment {
   padding: 8px 12px;
   font-size: 12px;
+  font-family: inherit;
   color: #334155;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.rf-comment {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 40px;
+  min-height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+}
+
+.rf-comment--selected {
+  box-shadow: 0 0 0 2px #93c5fd, 0 6px 16px rgba(15, 23, 42, 0.12);
+}
+
+.rf-comment__icon {
+  font-size: 24px;
+  color: #334155;
+}
+
+.rf-comment__tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%) translateY(4px);
+  min-width: 220px;
+  max-width: 380px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  font-size: 12px;
+  font-family: inherit;
+  line-height: 1.4;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease, transform 140ms ease;
+  z-index: 9999;
+}
+
+.rf-comment:hover .rf-comment__tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.rf-comment__tooltip p {
+  margin: 0;
+}
+
+.rf-comment__tooltip p + p,
+.rf-comment__tooltip ul + p,
+.rf-comment__tooltip p + ul,
+.rf-comment__tooltip ul + ul {
+  margin-top: 6px;
+}
+
+.rf-comment__tooltip ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.rf-comment__tooltip code,
+.markdown-preview code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: #f1f5f9;
+  padding: 1px 4px;
+  border-radius: 4px;
 }
 
 .rf-block__handle {
@@ -999,6 +1081,33 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   background: #ffffff;
   padding: 10px;
   margin-bottom: 10px;
+}
+
+.markdown-preview {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #0f172a;
+}
+
+.markdown-preview p {
+  margin: 0;
+}
+
+.markdown-preview p + p,
+.markdown-preview ul + p,
+.markdown-preview p + ul,
+.markdown-preview ul + ul {
+  margin-top: 6px;
+}
+
+.markdown-preview ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.markdown-preview a,
+.rf-comment__tooltip a {
+  color: #2563eb;
 }
 
 .checkbox-inline--boxed {

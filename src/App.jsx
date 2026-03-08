@@ -248,6 +248,32 @@ const getTextColorForBackground = (hex = '#ffffff') => {
   return luminance > 0.65 ? '#0f172a' : '#ffffff';
 };
 
+const escapeHtml = (value = '') =>
+  String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const renderMarkdownToHtml = (value = '') => {
+  const escaped = escapeHtml(value);
+  const withInline = escaped
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  return withInline
+    .split('\n')
+    .map((line) => {
+      if (/^\s*[-*]\s+/.test(line)) return `<li>${line.replace(/^\s*[-*]\s+/, '')}</li>`;
+      return line.trim() ? `<p>${line}</p>` : '';
+    })
+    .join('')
+    .replace(/(<li>.*?<\/li>)+/g, (match) => `<ul>${match}</ul>`);
+};
+
 const renderBlockIcon = (iconName, className = 'rf-block__title-icon') => {
   const clean = String(iconName || '').trim();
   if (!clean) return null;
@@ -481,6 +507,19 @@ function FrameNode({ data, selected, dragging }) {
   );
 }
 
+function CommentNode({ data, selected }) {
+  const comment = String(data.comment || '').trim();
+  return (
+    <div className={`rf-comment ${selected ? 'rf-comment--selected' : ''}`}>
+      <NodeResizer isVisible={selected} minWidth={40} minHeight={40} lineStyle={{ borderColor: '#93c5fd' }} />
+      <span className="material-symbols-outlined rf-comment__icon">chat_bubble</span>
+      {comment && (
+        <div className="rf-comment__tooltip" role="tooltip" dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(comment) }} />
+      )}
+    </div>
+  );
+}
+
 function DiagramApp() {
   const rf = useReactFlow();
   const wrapperRef = useRef(null);
@@ -535,7 +574,7 @@ function DiagramApp() {
   const lastSnapshotRef = useRef(null);
   const dragSnapshotRef = useRef(null);
 
-  const nodeTypes = useMemo(() => ({ block: BlockNode, frame: FrameNode }), []);
+  const nodeTypes = useMemo(() => ({ block: BlockNode, frame: FrameNode, comment: CommentNode }), []);
 
   const grouped = useMemo(() => {
     const g = {};
@@ -1339,6 +1378,20 @@ function DiagramApp() {
     closeMenu();
   };
 
+  const instantiateComment = () => {
+    const commentNode = {
+      id: nanoid(10),
+      type: 'comment',
+      position: { x: menu.flowX, y: menu.flowY },
+      style: { width: 44, height: 44 },
+      data: {
+        comment: '',
+      },
+    };
+    setNodes((prev) => [...prev, commentNode]);
+    closeMenu();
+  };
+
   const onConnect = useCallback(
     (params) => {
       reconnectRef.current.didConnect = true;
@@ -1909,6 +1962,10 @@ function DiagramApp() {
                 <span>Добавить фрейм</span>
                 <span className="material-symbols-outlined menu__action-icon">add_ad</span>
               </button>
+              <button className="menu__action" onClick={instantiateComment}>
+                <span>Добавить комментарий</span>
+                <span className="material-symbols-outlined menu__action-icon">chat_bubble</span>
+              </button>
               <button className="menu__action" onClick={openCreate}>
                 <span>Создать блок</span>
                 <span className="material-symbols-outlined menu__action-icon">add</span>
@@ -2122,6 +2179,7 @@ function DiagramApp() {
                   <label className="field field--compact">
                     <span>Comment</span>
                     <textarea
+                      className="comment-textarea"
                       value={selectedNode.data.comment || ''}
                       onChange={(e) =>
                         setNodes((prev) =>
@@ -2137,7 +2195,7 @@ function DiagramApp() {
                   </label>
                 </div>
               </>
-            ) : (
+            ) : selectedNode.type === 'frame' ? (
               <>
                 <label className="field">
                   <span>Заголовок фрейма</span>
@@ -2194,6 +2252,7 @@ function DiagramApp() {
                 <label className="field">
                   <span>Comment</span>
                   <textarea
+                    className="comment-textarea"
                     value={selectedNode.data.comment || ''}
                     onChange={(e) =>
                       setNodes((prev) =>
@@ -2205,6 +2264,33 @@ function DiagramApp() {
                     rows={4}
                   />
                 </label>
+              </>
+            ) : (
+              <>
+                <label className="field">
+                  <span>Комментарий (Markdown)</span>
+                  <textarea
+                    className="comment-textarea"
+                    value={selectedNode.data.comment || ''}
+                    onChange={(e) =>
+                      setNodes((prev) =>
+                        prev.map((n) =>
+                          n.id === selectedNodeId ? { ...n, data: { ...n.data, comment: e.target.value } } : n
+                        )
+                      )
+                    }
+                    rows={6}
+                    placeholder="**bold**, *italic*, `code`, [link](https://...)"
+                  />
+                </label>
+                {!!String(selectedNode.data.comment || '').trim() && (
+                  <div className="inspector-desc">
+                    <div className="inspector-desc__head">
+                      <strong>Preview</strong>
+                    </div>
+                    <div className="markdown-preview" dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(selectedNode.data.comment || '') }} />
+                  </div>
+                )}
               </>
             )}
           </>
