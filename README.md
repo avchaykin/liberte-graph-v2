@@ -38,21 +38,21 @@ Open: `http://localhost:4180`
 
 ### Homebrew
 
-> Формула публикуется через tap `avchaykin/liberte-graph-v2`.
+> Формула публикуется через tap `avchaykin/tap`.
 
-Install (one-liner):
+Install:
 
 ```bash
-brew install --HEAD avchaykin/liberte-graph-v2/liberte-graph-v2
+brew tap avchaykin/tap
+brew install avchaykin/tap/liberte-graph-v2
 brew services start liberte-graph-v2
 ```
 
-Update to latest HEAD:
+Update to latest stable release:
 
 ```bash
 brew update
-brew upgrade --fetch-HEAD avchaykin/liberte-graph-v2/liberte-graph-v2 || \
-brew reinstall --HEAD avchaykin/liberte-graph-v2/liberte-graph-v2
+brew upgrade avchaykin/tap/liberte-graph-v2
 brew services restart liberte-graph-v2
 ```
 
