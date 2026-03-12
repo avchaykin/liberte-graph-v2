@@ -19,6 +19,8 @@ import * as faSolid from '@fortawesome/free-solid-svg-icons';
 import 'reactflow/dist/style.css';
 import './App.css';
 
+const APP_VERSION = __APP_VERSION__;
+
 const STORAGE_SCHEMAS = 'liberte.schemas.v1';
 const STORAGE_AUTOSAVE = 'liberte.autosave.v1';
 const STORAGE_LAST_NAME = 'liberte.lastName.v1';
@@ -2644,6 +2646,10 @@ function DiagramApp() {
           </div>
         </div>
       )}
+
+      <div className="app-version" title="Версия приложения">
+        v{APP_VERSION}
+      </div>
 
       {showSaveAs && (
         <div className="modal-backdrop" onClick={() => setShowSaveAs(false)}>

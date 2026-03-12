@@ -25,6 +25,21 @@ body { font-family: Inter, system-ui, sans-serif; background: #fff; }
   border-right: 1px solid #e2e8f0;
 }
 
+.app-version {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 45;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 4px 8px;
+  pointer-events: none;
+}
+
 .topbar {
   position: absolute;
   top: 10px;
