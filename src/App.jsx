@@ -234,6 +234,7 @@ const ensureCoreBlockTypes = (types = []) => {
 const HEADER_H = 40;
 const PORTS_PAD = 10;
 const PORT_ROW_H = 24;
+const UNDO_LIMIT = 100;
 
 const deepClone = (value) => {
   if (typeof structuredClone === 'function') return structuredClone(value);
@@ -525,9 +526,9 @@ function CommentNode({ data, selected }) {
 
 function DiagramApp() {
   const rf = useReactFlow();
-  const wrapperRef = useRef(null);
   const autosaveTimerRef = useRef(null);
   const loadedRef = useRef(false);
+  const clipboardRef = useRef(null);
   const reconnectRef = useRef({ removedEdge: null, didConnect: false });
   const frameDragRef = useRef({ frameId: null, nodeStart: {}, frameStart: null });
   const importInputRef = useRef(null);
@@ -876,11 +877,11 @@ function DiagramApp() {
     return map;
   }, [blockTypes]);
 
-  const renderedNodes = useMemo(
+  const renderedNodesBase = useMemo(
     () =>
       nodes.map((n) => ({
         ...n,
-        zIndex: n.type === 'frame' ? -1 : n.id === hoveredNodeId ? 1000 : 10,
+        zIndex: n.type === 'frame' ? -1 : 10,
         data: {
           ...n.data,
           nodeId: n.id,
@@ -893,7 +894,15 @@ function DiagramApp() {
           invalidOutputHandles: [...(typeMismatchByNode[n.id]?.outputs ?? [])],
         },
       })),
-    [nodes, connectedByNode, toggleNodeMinimize, toggleNodeAttrs, hoveredNodeId, typeMismatchByNode, focusFrameById, blockTypeById]
+    [nodes, connectedByNode, toggleNodeMinimize, toggleNodeAttrs, typeMismatchByNode, focusFrameById, blockTypeById]
+  );
+
+  const renderedNodes = useMemo(
+    () =>
+      hoveredNodeId === null
+        ? renderedNodesBase
+        : renderedNodesBase.map((n) => (n.id === hoveredNodeId ? { ...n, zIndex: 1000 } : n)),
+    [renderedNodesBase, hoveredNodeId]
   );
 
   const getHandleTypes = useCallback(
@@ -1096,12 +1105,8 @@ function DiagramApp() {
       return;
     }
 
-    const prev = lastSnapshotRef.current;
-    const changed = JSON.stringify(prev) !== JSON.stringify(current);
-    if (!changed) return;
-
-    historyRef.current.undo.push(prev);
-    if (historyRef.current.undo.length > 100) historyRef.current.undo.shift();
+    historyRef.current.undo.push(lastSnapshotRef.current);
+    if (historyRef.current.undo.length > UNDO_LIMIT) historyRef.current.undo.shift();
     historyRef.current.redo = [];
     lastSnapshotRef.current = current;
   }, [blockTypes, nodes, edges, relationTypes, defaultLinkStyle, currentSchemaName, snapshotState]);
@@ -1115,8 +1120,8 @@ function DiagramApp() {
       try {
         const payload = JSON.parse(autosaveRaw);
         applyPayload(payload, { fromAutosave: true });
-      } catch {
-        // ignore broken autosave
+      } catch (e) {
+        console.warn('Failed to restore autosave:', e);
       }
     }
 
@@ -1150,7 +1155,8 @@ function DiagramApp() {
       let map = {};
       try {
         map = JSON.parse(localStorage.getItem(STORAGE_SCHEMAS) || '{}');
-      } catch {
+      } catch (e) {
+        console.warn('Failed to read saved schemas:', e);
         map = {};
       }
       map[clean] = buildPayload(clean);
@@ -1211,6 +1217,7 @@ function DiagramApp() {
     a.href = url;
     a.download = `${payload.name || 'schema'}.json`;
     a.click();
+    a.remove();
     URL.revokeObjectURL(url);
   };
 
@@ -1608,6 +1615,16 @@ function DiagramApp() {
     );
   };
 
+  const updateSelectedNode = useCallback(
+    (patch) =>
+      setNodes((prev) =>
+        prev.map((n) =>
+          n.id === selectedNodeId ? { ...n, data: { ...n.data, ...patch } } : n
+        )
+      ),
+    [selectedNodeId, setNodes]
+  );
+
   const openInstanceEditorForNode = useCallback((node) => {
     if (!node || node.type !== 'block') return;
     setSelectedNodeId(node.id);
@@ -1776,69 +1793,74 @@ function DiagramApp() {
     if (!startSnap) return;
 
     const endSnap = snapshotState();
-    const changed = JSON.stringify(startSnap) !== JSON.stringify(endSnap);
-    if (!changed) return;
+    const moved =
+      startSnap.nodes.length !== endSnap.nodes.length ||
+      startSnap.nodes.some((sn, i) => {
+        const en = endSnap.nodes[i];
+        return !en || en.id !== sn.id || en.position.x !== sn.position.x || en.position.y !== sn.position.y;
+      });
+    if (!moved) return;
 
     historyRef.current.undo.push(startSnap);
-    if (historyRef.current.undo.length > 100) historyRef.current.undo.shift();
+    if (historyRef.current.undo.length > UNDO_LIMIT) historyRef.current.undo.shift();
     historyRef.current.redo = [];
     lastSnapshotRef.current = endSnap;
   };
 
+  const onKeyDown = useCallback((event) => {
+    const meta = event.metaKey || event.ctrlKey;
+    if (!meta) return;
+    const targetTag = event.target?.tagName;
+    if (targetTag === 'INPUT' || targetTag === 'TEXTAREA') return;
+
+    const key = event.key.toLowerCase();
+
+    if ((key === 'z' || key === 'я') && !event.shiftKey) {
+      handleUndo();
+      event.preventDefault();
+      return;
+    }
+
+    if (((key === 'z' || key === 'я') && event.shiftKey) || key === 'y' || key === 'н') {
+      handleRedo();
+      event.preventDefault();
+      return;
+    }
+
+    if (key === 'c' && selectedNodeId) {
+      const selected = nodeById.get(selectedNodeId);
+      if (!selected) return;
+      clipboardRef.current = deepClone(selected);
+      event.preventDefault();
+    }
+
+    if (key === 'v' && clipboardRef.current) {
+      const cloned = deepClone(clipboardRef.current);
+      const newId = nanoid(10);
+      const nextNode = {
+        ...cloned,
+        id: newId,
+        selected: false,
+        dragging: false,
+        position: {
+          x: (cloned.position?.x || 0) + 40,
+          y: (cloned.position?.y || 0) + 40,
+        },
+      };
+      setNodes((prev) => [...prev, nextNode]);
+      setSelectedNodeId(newId);
+      event.preventDefault();
+    }
+  }, [nodeById, selectedNodeId, setNodes, handleUndo, handleRedo]);
+
   useEffect(() => {
-    const onKeyDown = (event) => {
-      const meta = event.metaKey || event.ctrlKey;
-      if (!meta) return;
-      const targetTag = event.target?.tagName;
-      if (targetTag === 'INPUT' || targetTag === 'TEXTAREA') return;
-
-      const key = event.key.toLowerCase();
-
-      if ((key === 'z' || key === 'я') && !event.shiftKey) {
-        handleUndo();
-        event.preventDefault();
-        return;
-      }
-
-      if (((key === 'z' || key === 'я') && event.shiftKey) || key === 'y' || key === 'н') {
-        handleRedo();
-        event.preventDefault();
-        return;
-      }
-
-      if (key === 'c' && selectedNodeId) {
-        const selected = nodeById.get(selectedNodeId);
-        if (!selected) return;
-        window.__liberteClipboardNode = deepClone(selected);
-        event.preventDefault();
-      }
-
-      if (key === 'v' && window.__liberteClipboardNode) {
-        const cloned = deepClone(window.__liberteClipboardNode);
-        const newId = nanoid(10);
-        const nextNode = {
-          ...cloned,
-          id: newId,
-          selected: false,
-          dragging: false,
-          position: {
-            x: (cloned.position?.x || 0) + 40,
-            y: (cloned.position?.y || 0) + 40,
-          },
-        };
-        setNodes((prev) => [...prev, nextNode]);
-        setSelectedNodeId(newId);
-        event.preventDefault();
-      }
-    };
-
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [nodeById, selectedNodeId, setNodes, handleUndo, handleRedo]);
+  }, [onKeyDown]);
 
   return (
     <div className="layout">
-      <div className="canvas" ref={wrapperRef} onContextMenu={openMenu}>
+      <div className="canvas" onContextMenu={openMenu}>
         <div className="topbar">
           <button className="topbar__btn topbar__btn--new icon-btn" onClick={handleNewSchema} title="Новая схема" aria-label="Новая схема">
             <span className="material-symbols-outlined">note_add</span>
@@ -2055,11 +2077,7 @@ function DiagramApp() {
                   <div className="field-icon-row">
                     <input
                       value={selectedNode.data.icon || ''}
-                      onChange={(e) =>
-                        setNodes((prev) =>
-                          prev.map((n) => (n.id === selectedNodeId ? { ...n, data: { ...n.data, icon: e.target.value } } : n))
-                        )
-                      }
+                      onChange={(e) => updateSelectedNode({ icon: e.target.value })}
                       placeholder="bolt или fa-house"
                     />
                     <span className="field-icon-preview" title={selectedNode.data.icon || 'icon preview'}>
@@ -2154,11 +2172,7 @@ function DiagramApp() {
                       <input
                         type="checkbox"
                         checked={Boolean(selectedNode.data.todo)}
-                        onChange={(e) =>
-                          setNodes((prev) =>
-                            prev.map((n) => (n.id === selectedNodeId ? { ...n, data: { ...n.data, todo: e.target.checked } } : n))
-                          )
-                        }
+                        onChange={(e) => updateSelectedNode({ todo: e.target.checked })}
                         disabled={isSelectedComponentNode}
                       />
                       Проектируемый
@@ -2185,15 +2199,7 @@ function DiagramApp() {
                     <textarea
                       className="comment-textarea"
                       value={selectedNode.data.comment || ''}
-                      onChange={(e) =>
-                        setNodes((prev) =>
-                          prev.map((n) =>
-                            n.id === selectedNodeId
-                              ? { ...n, data: { ...n.data, comment: e.target.value } }
-                              : n
-                          )
-                        )
-                      }
+                      onChange={(e) => updateSelectedNode({ comment: e.target.value })}
                       rows={4}
                     />
                   </label>
@@ -2212,13 +2218,7 @@ function DiagramApp() {
                     min={10}
                     max={48}
                     value={selectedNode.data.fontSize || 16}
-                    onChange={(e) =>
-                      setNodes((prev) =>
-                        prev.map((n) =>
-                          n.id === selectedNodeId ? { ...n, data: { ...n.data, fontSize: Number(e.target.value) || 16 } } : n
-                        )
-                      )
-                    }
+                    onChange={(e) => updateSelectedNode({ fontSize: Number(e.target.value) || 16 })}
                   />
                 </label>
                 <label className="field">
@@ -2228,26 +2228,14 @@ function DiagramApp() {
                     className="color-input"
                     style={{ backgroundColor: selectedNode.data.headerColor || '#E2E8F0' }}
                     value={selectedNode.data.headerColor || '#E2E8F0'}
-                    onChange={(e) =>
-                      setNodes((prev) =>
-                        prev.map((n) =>
-                          n.id === selectedNodeId ? { ...n, data: { ...n.data, headerColor: e.target.value } } : n
-                        )
-                      )
-                    }
+                    onChange={(e) => updateSelectedNode({ headerColor: e.target.value })}
                   />
                 </label>
                 <label className="field">
                   <span>Обрамление</span>
                   <select
                     value={selectedNode.data.frameBorderStyle || 'solid'}
-                    onChange={(e) =>
-                      setNodes((prev) =>
-                        prev.map((n) =>
-                          n.id === selectedNodeId ? { ...n, data: { ...n.data, frameBorderStyle: e.target.value } } : n
-                        )
-                      )
-                    }
+                    onChange={(e) => updateSelectedNode({ frameBorderStyle: e.target.value })}
                   >
                     <option value="solid">Сплошное</option>
                     <option value="dashed">Пунктир</option>
@@ -2258,13 +2246,7 @@ function DiagramApp() {
                   <textarea
                     className="comment-textarea"
                     value={selectedNode.data.comment || ''}
-                    onChange={(e) =>
-                      setNodes((prev) =>
-                        prev.map((n) =>
-                          n.id === selectedNodeId ? { ...n, data: { ...n.data, comment: e.target.value } } : n
-                        )
-                      )
-                    }
+                    onChange={(e) => updateSelectedNode({ comment: e.target.value })}
                     rows={4}
                   />
                 </label>
@@ -2278,13 +2260,7 @@ function DiagramApp() {
                     className="color-input"
                     style={{ backgroundColor: selectedNode.data.color || '#ffffff' }}
                     value={selectedNode.data.color || '#ffffff'}
-                    onChange={(e) =>
-                      setNodes((prev) =>
-                        prev.map((n) =>
-                          n.id === selectedNodeId ? { ...n, data: { ...n.data, color: e.target.value } } : n
-                        )
-                      )
-                    }
+                    onChange={(e) => updateSelectedNode({ color: e.target.value })}
                   />
                 </label>
                 <label className="field">
@@ -2292,13 +2268,7 @@ function DiagramApp() {
                   <textarea
                     className="comment-textarea"
                     value={selectedNode.data.comment || ''}
-                    onChange={(e) =>
-                      setNodes((prev) =>
-                        prev.map((n) =>
-                          n.id === selectedNodeId ? { ...n, data: { ...n.data, comment: e.target.value } } : n
-                        )
-                      )
-                    }
+                    onChange={(e) => updateSelectedNode({ comment: e.target.value })}
                     rows={6}
                     placeholder="**bold**, *italic*, `code`, [link](https://...)"
                   />
@@ -2322,7 +2292,7 @@ function DiagramApp() {
 
       {editorOpen && (
         <div className="modal-backdrop" onClick={() => setEditorOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <h3>{editingId ? 'Редактировать тип' : 'Новый тип'}</h3>
 
             <label className="field">
@@ -2495,7 +2465,7 @@ function DiagramApp() {
 
       {instanceEditorOpen && (
         <div className="modal-backdrop" onClick={() => setInstanceEditorOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <h3>Редактировать экземпляр</h3>
 
             <div className="section">
@@ -2576,7 +2546,7 @@ function DiagramApp() {
 
       {relationEditorOpen && (
         <div className="modal-backdrop" onClick={() => setRelationEditorOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <h3>Редактор типов связей</h3>
 
             <div className="section">
@@ -2653,7 +2623,7 @@ function DiagramApp() {
 
       {showSaveAs && (
         <div className="modal-backdrop" onClick={() => setShowSaveAs(false)}>
-          <div className="modal modal--small" onClick={(e) => e.stopPropagation()}>
+          <div className="modal modal--small" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <h3>Сохранить схему как</h3>
             <label className="field">
               <span>Имя схемы</span>
@@ -2669,7 +2639,7 @@ function DiagramApp() {
 
       {showLoad && (
         <div className="modal-backdrop" onClick={() => setShowLoad(false)}>
-          <div className="modal modal--small" onClick={(e) => e.stopPropagation()}>
+          <div className="modal modal--small" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <h3>Загрузить схему</h3>
             <div className="schema-list">
               {Object.keys(savedSchemas).length === 0 && <p>Сохранённых схем нет</p>}
